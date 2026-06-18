@@ -137,6 +137,14 @@ def main():
         logger.error(f"Input file not found: {args.input}")
         sys.exit(1)
 
+    # Ensure output directories exist automatically to prevent FileNotFoundError
+    if args.output:
+        output_dir = os.path.dirname(os.path.abspath(args.output))
+        os.makedirs(output_dir, exist_ok=True)
+    if args.ass:
+        ass_dir = os.path.dirname(os.path.abspath(args.ass))
+        os.makedirs(ass_dir, exist_ok=True)
+
     # Temporary audio file path
     temp_audio = "temp_audio.wav"
     
@@ -150,10 +158,20 @@ def main():
         logger.info("STEP 1/4: Extracting audio from video...")
         processor.extract_audio(args.input, temp_audio)
 
+        # Load optional ground truth lyrics for Whisper initial_prompt guidance
+        initial_prompt = None
+        if args.lyrics and os.path.exists(args.lyrics):
+            try:
+                with open(args.lyrics, 'r', encoding='utf-8') as f:
+                    initial_prompt = f.read().strip()
+                logger.info("Ground truth lyrics loaded as initial_prompt guidance.")
+            except Exception as e:
+                logger.warning(f"Could not read lyrics for initial_prompt: {e}")
+
         # Step 2: Transcribe with word-level timestamps
         logger.info("=" * 50)
         logger.info("STEP 2/4: Transcribing audio (this may take a while)...")
-        result = transcriber.transcribe(temp_audio, language=args.language, vad_filter=args.vad)
+        result = transcriber.transcribe(temp_audio, language=args.language, vad_filter=args.vad, initial_prompt=initial_prompt)
         
         # Log transcription summary
         total_words = sum(len(seg["words"]) for seg in result["segments"])

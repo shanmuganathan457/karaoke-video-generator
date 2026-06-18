@@ -23,5 +23,5 @@ OUTLINE_COLOR = "&H00000000"   # Black outline
 BACK_COLOR = "&H80000000"      # Semi-transparent black background
 
 # Output Defaults
-DEFAULT_OUTPUT_VIDEO = "output.mp4"
-DEFAULT_SUBTITLE_FILE = "karaoke.ass"
+DEFAULT_OUTPUT_VIDEO = "outputs/output.mp4"
+DEFAULT_SUBTITLE_FILE = "outputs/karaoke.ass"

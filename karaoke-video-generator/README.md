@@ -73,16 +73,16 @@ python -m karaoke_generator.main <input_video> [<output_video>] [options]
 
 To run a test with automated accuracy evaluation:
 ```bash
-python -m karaoke_generator.main mysong.mp4 output_tested.mp4 --lyrics test_lyrics.txt
+python -m karaoke_generator.main inputs/mysong.mp4 outputs/output_tested.mp4 --lyrics lyrics/test_lyrics.txt
 ```
 
 ### CLI Arguments & Options
 
 | Argument | Description | Default |
 | :--- | :--- | :--- |
-| `input` | Path to the input video file (e.g., `mysong.mp4`). *(Required)* | N/A |
-| `output` | Path to save the final output video. *(Optional)* | `output.mp4` |
-| `--ass` | Path to save the raw generated SubStation Alpha `.ass` subtitles file. | `karaoke.ass` |
+| `input` | Path to the input video file (e.g., `inputs/mysong.mp4`). *(Required)* | N/A |
+| `output` | Path to save the final output video. *(Optional)* | `outputs/output.mp4` |
+| `--ass` | Path to save the raw generated SubStation Alpha `.ass` subtitles file. | `outputs/karaoke.ass` |
 | `--language`, `-l` | Language code (e.g. `ta` for Tamil, `hi` for Hindi, `en` for English). | Auto-detected |
 | `--no-romanize` | Disables phonetic transliteration. Lyrics will remain in native scripts. | Romanization is active |
 | `--vad` | Enables Voice Activity Detection (useful for speech, but disabled by default for music). | `False` |
@@ -95,8 +95,10 @@ python -m karaoke_generator.main mysong.mp4 output_tested.mp4 --lyrics test_lyri
 To perform a product-release validation on transcription accuracy, run the tool with the optional `--lyrics` argument pointing to a text file with the official lyrics:
 
 ```bash
-python -m karaoke_generator.main mysong.mp4 output_tested.mp4 --lyrics real_lyrics.txt
+python -m karaoke_generator.main inputs/mysong.mp4 outputs/output_tested.mp4 --lyrics lyrics/real_lyrics.txt
 ```
+
+*(Note: The `--lyrics` file is completely optional. If you do not provide this argument, the video will still be generated normally, and the accuracy calculation/metrics report will be skipped).*
 
 At the end of the execution, the pipeline will display a report directly in the terminal showing:
 * **Sequence Similarity Ratio:** Percentage match of word alignment sequences (`difflib.SequenceMatcher`).

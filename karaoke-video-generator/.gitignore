@@ -19,3 +19,11 @@ __pycache__/
 
 # Subtitles
 *.ass
+
+# Text/Lyrics files
+*.txt
+
+# Project folders
+inputs/
+outputs/
+lyrics/

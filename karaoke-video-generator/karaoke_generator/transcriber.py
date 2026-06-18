@@ -14,7 +14,7 @@ class AudioTranscriber:
         self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
         logger.info("Model loaded successfully.")
 
-    def transcribe(self, audio_path: str, language: Optional[str] = None, vad_filter: bool = False) -> Dict[str, Any]:
+    def transcribe(self, audio_path: str, language: Optional[str] = None, vad_filter: bool = False, initial_prompt: Optional[str] = None) -> Dict[str, Any]:
         """
         Transcribes the audio and returns segments with word-level timestamps.
         
@@ -23,6 +23,7 @@ class AudioTranscriber:
             language: Optional language code (e.g., 'ta', 'en', 'hi'). 
                       If None, language is auto-detected.
             vad_filter: Whether to apply Voice Activity Detection.
+            initial_prompt: Optional prompt text to guide Whisper's spelling and vocabulary.
             
         Returns:
             A dictionary containing segments, words, and detected language info.
@@ -38,7 +39,8 @@ class AudioTranscriber:
 
         # Configure transcription parameters for best accuracy
         transcribe_kwargs = {
-            "beam_size": 5,
+            "beam_size": 10,
+            "best_of": 5,
             "word_timestamps": True,
             "vad_filter": vad_filter,          # Voice Activity Detection to skip silence
             "vad_parameters": {
@@ -49,6 +51,9 @@ class AudioTranscriber:
         # If language is explicitly specified, use it for better accuracy
         if language:
             transcribe_kwargs["language"] = language
+
+        if initial_prompt:
+            transcribe_kwargs["initial_prompt"] = initial_prompt
 
         segments, info = self.model.transcribe(audio_path, **transcribe_kwargs)
 
