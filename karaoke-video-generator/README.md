@@ -11,6 +11,7 @@ A premium, modular Python-based utility that converts any input video into a syn
 * **Lossless Audio Preservation:** Retains the original audio quality (`acodec='copy'`) without any compression loss.
 * **VAD Optimization for Music:** Voice Activity Detection (VAD) is disabled by default to prevent filtering out sustained singing notes, quiet vocal overlays, or whispered lyrics.
 * **Standard SubStation Alpha (ASS) Styling:** Outputs a beautifully styled subtitle file supporting the standard ASS `\k` karaoke highlight animation (text changes from white to yellow as it is sung).
+* **Automated Accuracy Reporting:** Input a ground truth text file to instantly calculate standard NLP metrics, including Word Error Rate (WER) and Sequence Similarity.
 
 ---
 
@@ -70,6 +71,11 @@ Run the coordinator module from the project root directory:
 python -m karaoke_generator.main <input_video> [<output_video>] [options]
 ```
 
+To run a test with automated accuracy evaluation:
+```bash
+python -m karaoke_generator.main mysong.mp4 output_tested.mp4 --lyrics test_lyrics.txt
+```
+
 ### CLI Arguments & Options
 
 | Argument | Description | Default |
@@ -80,23 +86,24 @@ python -m karaoke_generator.main <input_video> [<output_video>] [options]
 | `--language`, `-l` | Language code (e.g. `ta` for Tamil, `hi` for Hindi, `en` for English). | Auto-detected |
 | `--no-romanize` | Disables phonetic transliteration. Lyrics will remain in native scripts. | Romanization is active |
 | `--vad` | Enables Voice Activity Detection (useful for speech, but disabled by default for music). | `False` |
+| `--lyrics` | Path to a `.txt` file containing the ground truth lyrics. If provided, calculates accuracy metrics at the end of the run. | `None` |
 
-### Examples
+---
 
-* **Default Run (Auto-Language, Romanized, Audio Retained):**
-  ```bash
-  python -m karaoke_generator.main mysong.mp4 output_karaoke.mp4
-  ```
+## 📈 Quality Assurance & Metrics
 
-* **Manually Specify Tamil Language with No VAD (Optimal for Tamil Songs):**
-  ```bash
-  python -m karaoke_generator.main mysong.mp4 output_karaoke.mp4 --language ta
-  ```
+To perform a product-release validation on transcription accuracy, run the tool with the optional `--lyrics` argument pointing to a text file with the official lyrics:
 
-* **Keep Native Tamil/Hindi Script (Do Not Transliterate to English Letters):**
-  ```bash
-  python -m karaoke_generator.main mysong.mp4 output_karaoke.mp4 --no-romanize
-  ```
+```bash
+python -m karaoke_generator.main mysong.mp4 output_tested.mp4 --lyrics real_lyrics.txt
+```
+
+At the end of the execution, the pipeline will display a report directly in the terminal showing:
+* **Sequence Similarity Ratio:** Percentage match of word alignment sequences (`difflib.SequenceMatcher`).
+* **Word Error Rate (WER):** Standard NLP metric: $(Substitutions + Deletions + Insertions) / Total\_Reference\_Words$.
+* **Overall Word Accuracy:** $1.0 - \text{WER}$.
+
+*(The system automatically detects if the reference file contains native script (Tamil/Hindi) or Romanized text (English letters), and matches it against the correct transcription format).*
 
 ---
 
