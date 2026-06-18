@@ -4,3 +4,8 @@ ffmpeg-python>=0.2.0
 python-dotenv>=1.0.0
 anyascii>=0.3.0
 tamil-translite
+
+# ── Mobile App Backend Server ──────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
