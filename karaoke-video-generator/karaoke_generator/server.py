@@ -105,7 +105,7 @@ async def process_video(job_id: str, input_path: Path):
             transcriber.transcribe,
             vocals_path,
             language=lang_param,
-            vad_filter=True,
+            vad_filter=False,
             initial_prompt=lyrics_prompt,
         )
 
