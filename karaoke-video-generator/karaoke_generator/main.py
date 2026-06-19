@@ -3,15 +3,12 @@ import os
 import argparse
 import logging
 import difflib
-from anyascii import anyascii
-try:
-    from tamil_translite import translite as tamil_transliterate
-except ImportError:
-    tamil_transliterate = None
 
 from .transcriber import AudioTranscriber
 from .subtitle_generator import SubtitleGenerator
 from .video_processor import VideoProcessor
+from .vocal_separator import VocalSeparator
+from .transliterator import Transliterator
 from .config import DEFAULT_OUTPUT_VIDEO, DEFAULT_SUBTITLE_FILE
 
 logger = logging.getLogger("KaraokeGenerator")
@@ -53,14 +50,8 @@ def calculate_similarity_report(ground_truth_path, result, romanize):
     for segment in result["segments"]:
         for word_data in segment.get("words", []):
             word = word_data["word"]
-            leading_spaces = len(word) - len(word.lstrip())
-            trailing_spaces = len(word) - len(word.rstrip())
-            stripped_word = word.strip()
             if romanize:
-                if tamil_transliterate and any('\u0b80' <= char <= '\u0bff' for char in stripped_word):
-                    word = (" " * leading_spaces) + tamil_transliterate(stripped_word) + (" " * trailing_spaces)
-                else:
-                    word = anyascii(word)
+                word = Transliterator.transliterate_word(word)
             romanized_words.append(word)
     model_romanized = "".join(romanized_words)
 
@@ -86,22 +77,38 @@ def calculate_similarity_report(ground_truth_path, result, romanize):
     matcher = difflib.SequenceMatcher(None, gt_words, mo_words)
     ratio = matcher.ratio()
 
-    # Calculate WER
+    # Compute similarity ratio (already calculated)
+    # Calculate WER and detailed error counts
     opcodes = matcher.get_opcodes()
     substitutions = 0
     insertions = 0
     deletions = 0
+    mismatched_words = []
     for tag, i1, i2, j1, j2 in opcodes:
         if tag == 'replace':
-            substitutions += max(i2 - i1, j2 - j1)
+            subs = max(i2 - i1, j2 - j1)
+            substitutions += subs
+            mismatched_words.extend(gt_words[i1:i2])
         elif tag == 'insert':
             insertions += (j2 - j1)
+            mismatched_words.extend(["<INS>" for _ in range(j2 - j1)])
         elif tag == 'delete':
             deletions += (i2 - i1)
-            
+            mismatched_words.extend(gt_words[i1:i2])
     total_edits = substitutions + insertions + deletions
     wer = total_edits / len(gt_words) if gt_words else 0
     word_accuracy = max(0.0, 1.0 - wer)
+
+    # Character Error Rate (CER)
+    gt_chars = list(gt_clean.replace(" ", ""))
+    model_chars = list(model_compare.replace(" ", ""))
+    char_matcher = difflib.SequenceMatcher(None, gt_chars, model_chars)
+    char_ops = char_matcher.get_opcodes()
+    char_subs = sum(max(i2 - i1, j2 - j1) for tag, i1, i2, j1, j2 in char_ops if tag == 'replace')
+    char_ins = sum(j2 - j1 for tag, i1, i2, j1, j2 in char_ops if tag == 'insert')
+    char_del = sum(i2 - i1 for tag, i1, i2, j1, j2 in char_ops if tag == 'delete')
+    total_char_edits = char_subs + char_ins + char_del
+    cer = total_char_edits / len(gt_chars) if gt_chars else 0
 
     print("\n" + "=" * 60)
     print(f"            LYRICS ACCURACY METRICS REPORT ({label})")
@@ -114,7 +121,15 @@ def calculate_similarity_report(ground_truth_path, result, romanize):
     print("-" * 60)
     print(f"Sequence Similarity Ratio : {ratio * 100:.2f}%")
     print(f"Word Error Rate (WER)     : {wer * 100:.2f}%")
+    print(f"  • Substitutions: {substitutions}")
+    print(f"  • Insertions   : {insertions}")
+    print(f"  • Deletions    : {deletions}")
+    print(f"Character Error Rate (CER) : {cer * 100:.2f}%")
     print(f"Overall Word Accuracy     : {word_accuracy * 100:.2f}%")
+    if mismatched_words:
+        # Show up to first 20 mismatched words for quick inspection
+        preview = mismatched_words[:20]
+        print(f"Mismatched Words Sample : {' '.join(preview)}{'...' if len(mismatched_words) > 20 else ''}")
     print("=" * 60 + "\n")
 
 def main():
@@ -126,10 +141,9 @@ def main():
     parser.add_argument("output", nargs="?", default=DEFAULT_OUTPUT_VIDEO, help="Path to output video file (default: output.mp4)")
     parser.add_argument("--ass", default=DEFAULT_SUBTITLE_FILE, help="Path to save generated ASS subtitle file (default: karaoke.ass)")
     parser.add_argument("--language", "-l", default=None, help="Language code (e.g., 'ta' for Tamil, 'en' for English, 'hi' for Hindi). Auto-detected if not specified.")
-    parser.add_argument("--no-romanize", dest="romanize", action="store_false", help="Disable transliteration/romanization of non-Latin characters (default: Romanization is enabled)")
+    parser.add_argument("--romanize", action="store_true", default=True, help="Enable transliteration/romanization of non-Latin characters to Latin (default: True)")
     parser.add_argument("--vad", action="store_true", default=False, help="Enable Voice Activity Detection filter (default: False to maximize song recall)")
     parser.add_argument("--lyrics", default=None, help="Optional path to ground truth lyrics txt file to calculate metrics")
-    parser.set_defaults(romanize=True)
     
     args = parser.parse_args()
 
@@ -145,8 +159,10 @@ def main():
         ass_dir = os.path.dirname(os.path.abspath(args.ass))
         os.makedirs(ass_dir, exist_ok=True)
 
-    # Temporary audio file path
+    # Temporary audio file paths
     temp_audio = "temp_audio.wav"
+    vocals_audio = None
+    instrumental_audio = None
     
     try:
         processor = VideoProcessor()
@@ -155,8 +171,13 @@ def main():
 
         # Step 1: Extract Audio
         logger.info("=" * 50)
-        logger.info("STEP 1/4: Extracting audio from video...")
+        logger.info("STEP 1: Extracting audio from video...")
         processor.extract_audio(args.input, temp_audio)
+
+        # Step 1b: Vocal Separation using Demucs
+        logger.info("=" * 50)
+        logger.info("Isolating vocal track for transcription...")
+        vocals_audio, instrumental_audio = VocalSeparator.separate(temp_audio)
 
         # Load optional ground truth lyrics for Whisper initial_prompt guidance
         initial_prompt = None
@@ -168,10 +189,10 @@ def main():
             except Exception as e:
                 logger.warning(f"Could not read lyrics for initial_prompt: {e}")
 
-        # Step 2: Transcribe with word-level timestamps
+        # Step 2: Transcribe vocals with word-level timestamps
         logger.info("=" * 50)
-        logger.info("STEP 2/4: Transcribing audio (this may take a while)...")
-        result = transcriber.transcribe(temp_audio, language=args.language, vad_filter=args.vad, initial_prompt=initial_prompt)
+        logger.info("STEP 2: Transcribing isolated vocals (this may take a while)...")
+        result = transcriber.transcribe(vocals_audio, language=args.language, vad_filter=args.vad, initial_prompt=initial_prompt)
         
         # Log transcription summary
         total_words = sum(len(seg["words"]) for seg in result["segments"])
@@ -180,12 +201,12 @@ def main():
 
         # Step 3: Generate Karaoke Subtitles
         logger.info("=" * 50)
-        logger.info("STEP 3/4: Generating karaoke-style ASS subtitles...")
+        logger.info("STEP 3: Generating karaoke-style ASS subtitles...")
         sub_gen.generate(result["segments"], args.ass, romanize=args.romanize, language=result["language"])
 
         # Step 4: Burn Subtitles into Video
         logger.info("=" * 50)
-        logger.info("STEP 4/4: Burning subtitles into video...")
+        logger.info("STEP 4: Burning subtitles into video...")
         processor.burn_subtitles(args.input, args.ass, args.output)
 
         logger.info("=" * 50)
@@ -201,9 +222,13 @@ def main():
         logger.exception("A fatal error occurred during processing")
         sys.exit(1)
     finally:
-        # Cleanup temporary audio file
-        if os.path.exists(temp_audio):
-            os.remove(temp_audio)
+        # Cleanup temporary audio files
+        for f in [temp_audio, vocals_audio, instrumental_audio]:
+            if f and os.path.exists(f):
+                try:
+                    os.remove(f)
+                except Exception as cleanup_err:
+                    logger.warning(f"Could not remove temporary file {f}: {cleanup_err}")
 
 if __name__ == "__main__":
     main()

@@ -13,6 +13,10 @@ WHISPER_MODEL = "large-v3"  # Options: tiny, base, small, medium, large-v3
 DEVICE = "cpu"              # Use "cuda" if GPU is available
 COMPUTE_TYPE = "int8"       # Optimized for CPU usage
 
+# Vocal Separation Settings
+DEMUCS_MODEL = "htdemucs"   # Default hybrid transformer model
+DEMUCS_DEVICE = "cpu"       # Use "cuda" if GPU is available
+
 # Subtitle Styling (ASS Format)
 # Karaoke style: white text turns yellow as words are sung
 FONT_NAME = "Arial"

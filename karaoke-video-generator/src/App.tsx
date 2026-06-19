@@ -618,9 +618,9 @@ export default function App() {
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Share Directly To</span>
                         <div className="grid grid-cols-3 gap-2">
                           {[
-                            { name: "TikTok", bg: "bg-black text-white" },
+                            { name: "WhatsApp", bg: "bg-emerald-500 text-white" },
                             { name: "Instagram", bg: "bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white" },
-                            { name: "YouTube", bg: "bg-red-600 text-white" }
+                            { name: "Telegram", bg: "bg-sky-500 text-white" }
                           ].map((t) => (
                             <button
                               key={t.name}
@@ -634,7 +634,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="mt-auto space-y-2 pt-4">
                       {/* Big action Save to Device */}
                       <button 
                         onClick={() => triggerToast("Saved to Device Gallery!")}

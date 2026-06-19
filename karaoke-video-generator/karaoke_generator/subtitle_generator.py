@@ -1,11 +1,7 @@
 import pysubs2
 from typing import List, Dict, Any, Optional
 import logging
-from anyascii import anyascii
-try:
-    from tamil_translite import translite as tamil_transliterate
-except ImportError:
-    tamil_transliterate = None
+from .transliterator import Transliterator
 
 from .config import (
     FONT_NAME, FONT_SIZE, PRIMARY_COLOR, 
@@ -91,15 +87,7 @@ class SubtitleGenerator:
             for word_data in segment["words"]:
                 word = word_data["word"]
                 if romanize:
-                    # Preserve leading and trailing whitespace because translite strips them
-                    leading_spaces = len(word) - len(word.lstrip())
-                    trailing_spaces = len(word) - len(word.rstrip())
-                    stripped_word = word.strip()
-                    
-                    if tamil_transliterate and any('\u0b80' <= char <= '\u0bff' for char in stripped_word):
-                        word = (" " * leading_spaces) + tamil_transliterate(stripped_word) + (" " * trailing_spaces)
-                    else:
-                        word = anyascii(word)
+                    word = Transliterator.transliterate_word(word, language)
                 
                 word_start_ms = int(word_data["start"] * 1000)
                 word_end_ms = int(word_data["end"] * 1000)

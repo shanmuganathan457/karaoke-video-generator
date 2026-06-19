@@ -70,6 +70,8 @@ async def process_video(job_id: str, input_path: Path):
     audio_path = OUTPUT_DIR / f"{job_id}_audio.wav"
     ass_path   = OUTPUT_DIR / f"{job_id}.ass"
     output_mp4 = OUTPUT_DIR / f"karaoke_{job_id}.mp4"
+    vocals_path = None
+    instrumental_path = None
 
     def update(status: str, progress: int, step: str, est: int = 0):
         JOBS[job_id].update({"status": status, "progress": progress, "step": step, "estimatedSeconds": est})
@@ -83,20 +85,39 @@ async def process_video(job_id: str, input_path: Path):
             processor.extract_audio, str(input_path), str(audio_path)
         )
 
-        # Step 2: Transcribe with Whisper
-        update("transcribing", 30, "Speech Recognition", 30)
+        # Step 1b: Vocal Separation using Demucs
+        update("separating", 20, "Vocal Separation", 50)
+        from karaoke_generator.vocal_separator import VocalSeparator
+        vocals_path, instrumental_path = await asyncio.to_thread(
+            VocalSeparator.separate, str(audio_path)
+        )
+
+        # Step 2: Transcribe vocals with Whisper
+        update("transcribing", 40, "Speech Recognition", 30)
         transcriber = AudioTranscriber()
-        result = await asyncio.to_thread(transcriber.transcribe, str(audio_path))
+        # Retrieve job metadata (language & optional lyrics)
+        job_meta = JOBS.get(job_id, {})
+        detected_language = None
+        lang_param = job_meta.get("language")
+        lyrics_prompt = job_meta.get("lyrics")
+        # Transcribe with explicit language, VAD enabled, and optional lyrics prompt
+        result = await asyncio.to_thread(
+            transcriber.transcribe,
+            vocals_path,
+            language=lang_param,
+            vad_filter=True,
+            initial_prompt=lyrics_prompt,
+        )
 
         # Step 3: Word-Level timing (already in result)
-        update("timing", 65, "Word-Level Timing", 15)
+        update("timing", 70, "Word-Level Timing", 15)
         segments = result["segments"]
         detected_language = result.get("language", None)
         await asyncio.sleep(0.5)
 
         # Step 4: Generate ASS subtitles
         # romanize=True converts non-Latin scripts (Tamil, Hindi, etc.) to Tanglish/Latin
-        update("generating", 80, "Subtitle Generation", 10)
+        update("generating", 85, "Subtitle Generation", 10)
         gen = SubtitleGenerator()
         await asyncio.to_thread(
             gen.generate,
@@ -107,7 +128,7 @@ async def process_video(job_id: str, input_path: Path):
         )
 
         # Step 5: Burn subtitles into video
-        update("generating", 90, "Burning Subtitles", 5)
+        update("generating", 95, "Burning Subtitles", 5)
         await asyncio.to_thread(
             processor.burn_subtitles, str(input_path), str(ass_path), str(output_mp4)
         )
@@ -127,12 +148,28 @@ async def process_video(job_id: str, input_path: Path):
         JOBS[job_id].update({"status": "error", "progress": 0, "step": "Error", "error": str(e)})
 
     finally:
-        # Clean up temp audio
+        # Clean up temp audio and separated tracks
         if audio_path.exists():
-            audio_path.unlink()
+            try:
+                audio_path.unlink()
+            except Exception as ce:
+                log.warning(f"Could not delete temp audio path {audio_path}: {ce}")
+        if vocals_path and os.path.exists(vocals_path):
+            try:
+                os.remove(vocals_path)
+            except Exception as ce:
+                log.warning(f"Could not delete vocals path {vocals_path}: {ce}")
+        if instrumental_path and os.path.exists(instrumental_path):
+            try:
+                os.remove(instrumental_path)
+            except Exception as ce:
+                log.warning(f"Could not delete instrumental path {instrumental_path}: {ce}")
         # Clean up uploaded input
         if input_path.exists():
-            input_path.unlink()
+            try:
+                input_path.unlink()
+            except Exception as ce:
+                log.warning(f"Could not delete input path {input_path}: {ce}")
 
 
 # ─── Routes ─────────────────────────────────────────────────────────────────
@@ -142,7 +179,11 @@ async def health():
 
 
 @app.post("/upload")
-async def upload_video(file: UploadFile = File(...)):
+async def upload_video(
+    file: UploadFile = File(...),
+    language: Optional[str] = None,  # e.g., "ta" for Tamil
+    lyrics: Optional[str] = None,   # raw lyrics text for initial_prompt
+):
     if not file.content_type or not file.content_type.startswith("video/"):
         raise HTTPException(400, "Only video files accepted.")
 
@@ -156,6 +197,7 @@ async def upload_video(file: UploadFile = File(...)):
     size_kb = input_path.stat().st_size // 1024
     log.info(f"[{job_id[:8]}] Received: {file.filename} ({size_kb} KB)")
 
+    # Store job metadata including optional params
     JOBS[job_id] = {
         "status": "queued",
         "progress": 0,
@@ -163,6 +205,8 @@ async def upload_video(file: UploadFile = File(...)):
         "estimatedSeconds": 60,
         "outputUrl": None,
         "error": None,
+        "language": language,   # may be None → auto-detect later
+        "lyrics": lyrics,       # may be None
     }
 
     asyncio.create_task(process_video(job_id, input_path))

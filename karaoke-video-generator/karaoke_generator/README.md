@@ -1,56 +1,26 @@
-# Karaoke Video Generator
+# Karaoke Video Generator Package
 
-A production-quality Python project to create karaoke-style videos with synchronized word-level highlighting.
+This is the core Python module of the Karaoke Video Generator application. It implements audio vocal separation, automated speech recognition with word-level timestamps, subtitle generation, and video rendering.
 
-## Features
-- **High Precision**: Uses `faster-whisper` for word-level timestamps.
-- **Multilingual**: Auto-detects and supports multiple languages.
-- **ASS Subtitles**: Generates Advanced SubStation Alpha subtitles with standard karaoke tags (`\k`).
-- **FFmpeg Integration**: Automatic audio extraction and subtitle burning.
-- **Modular Design**: Easy to extend or integrate into other workflows.
+## Core Modules
 
-## Prerequisites
-- Python 3.11+
-- [FFmpeg](https://ffmpeg.org/download.html) installed and added to YOUR PATH.
+- **`main.py`**: CLI entrypoint and pipeline coordinator.
+- **`vocal_separator.py`**: Uses `demucs` to isolate vocals from accompaniment.
+- **`transcriber.py`**: Uses `faster-whisper` for speech-to-text transcription.
+- **`transliterator.py`**: Uses `aksharamukha` and `tamil-translite` for multilingual Romanization (Devanagari, Telugu, Kannada, Malayalam, Tamil).
+- **`subtitle_generator.py`**: Creates Advanced SubStation Alpha (`.ass`) karaoke timing tags (`\k`).
+- **`video_processor.py`**: Wrapper for `ffmpeg` audio extraction and subtitle burn-in.
+- **`config.py`**: Stylistic options (colors, fonts) and model parameters.
+- **`server.py`**: FastAPI rest server to integrate with the mobile application.
 
 ## Installation
 
-1. Clone or download this project.
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-Run the generator from the command line:
-
 ```bash
-python -m karaoke_generator.main input.mp4 output_karaoke.mp4
+pip install -r requirements.txt
 ```
 
-### Options
-- `input`: (Required) Path to the input video.
-- `output`: (Optional) Path to save the processed video (defaults to `output.mp4`).
-- `--ass`: (Optional) Path to save the separate subtitle file (defaults to `karaoke.ass`).
+## CLI Usage
 
-## Architecture
-- `main.py`: Entry point and workflow orchestration.
-- `transcriber.py`: Audio transcription engine.
-- `subtitle_generator.py`: ASS file creation and karaoke tag logic.
-- `video_processor.py`: FFmpeg wrapper for multimedia operations.
-- `config.py`: Centralized settings for models and styling.
-
-## Subtitle Styling
-The defaults are:
-- **Font**: Arial, Size 24
-- **Normal Color**: White
-- **Highlight Color**: Yellow (synchronized with audio)
-- **Position**: Bottom-Center
-
-## Error Handling
-The project includes comprehensive logging and handles common failures such as:
-- Missing input files.
-- FFmpeg errors during processing.
-- Transcription failures.
-- File permission issues.
+```bash
+python -m karaoke_generator.main input.mp4 output.mp4 --romanize
+```
