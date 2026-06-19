@@ -86,6 +86,7 @@ class SubtitleGenerator:
             
             # Construct karaoke string using \k tags (centisecond durations)
             karaoke_text = ""
+            current_time_ms = event.start
             
             for word_data in segment["words"]:
                 word = word_data["word"]
@@ -99,13 +100,26 @@ class SubtitleGenerator:
                         word = (" " * leading_spaces) + tamil_transliterate(stripped_word) + (" " * trailing_spaces)
                     else:
                         word = anyascii(word)
-                start_ms = word_data["start"] * 1000
-                end_ms = word_data["end"] * 1000
+                
+                word_start_ms = int(word_data["start"] * 1000)
+                word_end_ms = int(word_data["end"] * 1000)
+                
+                # Safety: prevent backwards timing in case Whisper outputs overlapping word times
+                word_start_ms = max(word_start_ms, current_time_ms)
+                word_end_ms = max(word_end_ms, word_start_ms)
+                
+                # Check if there is a silence/delay gap before the word start
+                if word_start_ms > current_time_ms:
+                    gap_cs = int((word_start_ms - current_time_ms) / 10)
+                    if gap_cs > 0:
+                        karaoke_text += f"{{\\k{gap_cs}}}"
+                        current_time_ms += gap_cs * 10
                 
                 # Duration in centiseconds for \k tag
-                duration_cs = max(1, int((end_ms - start_ms) / 10))
+                duration_cs = max(1, int((word_end_ms - word_start_ms) / 10))
                 
                 karaoke_text += f"{{\\k{duration_cs}}}{word}"
+                current_time_ms += duration_cs * 10
                 
             event.text = karaoke_text
             self.subs.append(event)

@@ -41,7 +41,9 @@ class AudioTranscriber:
         transcribe_kwargs = {
             "beam_size": 10,
             "best_of": 5,
+            "patience": 2.0,                     # Search deeper/longer for higher decoding quality
             "word_timestamps": True,
+            "hallucination_silence_threshold": 2.0,  # Prevent Whisper from hallucinating text during instrumental sections
             "vad_filter": vad_filter,          # Voice Activity Detection to skip silence
             "vad_parameters": {
                 "min_silence_duration_ms": 500,

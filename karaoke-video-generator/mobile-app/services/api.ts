@@ -40,27 +40,38 @@ export async function uploadVideo(
   fileName: string,
   mimeType: string = 'video/mp4'
 ): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append('file', {
-    uri: fileUri,
-    name: fileName,
-    type: mimeType,
-  } as any);
-
-  const response = await fetch(`${API_BASE_URL}/upload`, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      'Accept': 'application/json',
-    },
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}/upload`);
+    
+    xhr.setRequestHeader('Accept', 'application/json');
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response);
+        } catch (e) {
+          reject(new Error(`Invalid response from server: ${xhr.responseText}`));
+        }
+      } else {
+        reject(new Error(`Upload failed (${xhr.status}): ${xhr.responseText || 'Server error'}`));
+      }
+    };
+    
+    xhr.onerror = () => {
+      reject(new Error('Network request failed. Make sure the server is running and reachable.'));
+    };
+    
+    const formData = new FormData();
+    formData.append('file', {
+      uri: fileUri,
+      name: fileName,
+      type: mimeType,
+    } as any);
+    
+    xhr.send(formData);
   });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Upload failed: ${err}`);
-  }
-
-  return response.json();
 }
 
 /**

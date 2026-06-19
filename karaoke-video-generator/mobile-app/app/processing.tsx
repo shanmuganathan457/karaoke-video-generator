@@ -10,12 +10,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Animated,
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getJobStatus, getOutputVideoUrl, type JobStatus } from '../services/api';

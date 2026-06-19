@@ -91,12 +91,20 @@ async def process_video(job_id: str, input_path: Path):
         # Step 3: Word-Level timing (already in result)
         update("timing", 65, "Word-Level Timing", 15)
         segments = result["segments"]
+        detected_language = result.get("language", None)
         await asyncio.sleep(0.5)
 
         # Step 4: Generate ASS subtitles
+        # romanize=True converts non-Latin scripts (Tamil, Hindi, etc.) to Tanglish/Latin
         update("generating", 80, "Subtitle Generation", 10)
         gen = SubtitleGenerator()
-        await asyncio.to_thread(gen.generate, segments, str(ass_path))
+        await asyncio.to_thread(
+            gen.generate,
+            segments,
+            str(ass_path),
+            romanize=True,
+            language=detected_language
+        )
 
         # Step 5: Burn subtitles into video
         update("generating", 90, "Burning Subtitles", 5)
@@ -177,12 +185,64 @@ async def get_status(job_id: str):
     )
 
 
+# Lock map to serialize transcoding requests for the same target file
+TRANSCODE_LOCKS: dict[str, asyncio.Lock] = {}
+
+def get_transcode_lock(cache_key: str) -> asyncio.Lock:
+    if cache_key not in TRANSCODE_LOCKS:
+        TRANSCODE_LOCKS[cache_key] = asyncio.Lock()
+    return TRANSCODE_LOCKS[cache_key]
+
 @app.get("/output/{job_id}")
-async def get_output(job_id: str):
-    path = OUTPUT_DIR / f"karaoke_{job_id}.mp4"
-    if not path.exists():
+async def get_output(job_id: str, quality: Optional[str] = None, format: Optional[str] = None):
+    base_path = OUTPUT_DIR / f"karaoke_{job_id}.mp4"
+    if not base_path.exists():
         raise HTTPException(404, "Output not ready yet.")
-    return FileResponse(str(path), media_type="video/mp4", filename=f"karaoke_{job_id}.mp4")
+        
+    if not quality and not format:
+        return FileResponse(str(base_path), media_type="video/mp4", filename=f"karaoke_{job_id}.mp4")
+
+    # Normalize parameters
+    quality = quality or "1080p"
+    format_ext = (format or "MP4").lower()
+    
+    # Target filename and path
+    transcoded_name = f"karaoke_{job_id}_{quality}.{format_ext}"
+    transcoded_path = OUTPUT_DIR / transcoded_name
+    temp_path = transcoded_path.with_suffix(".tmp")
+    
+    # Get the lock for this specific transcoding task to avoid concurrent writes/reads
+    lock = get_transcode_lock(transcoded_name)
+    
+    async with lock:
+        if not transcoded_path.exists():
+            try:
+                log.info(f"[{job_id[:8]}] On-demand transcoding requested: quality={quality}, format={format_ext}")
+                processor = VideoProcessor()
+                
+                # Transcode to temp file first
+                await asyncio.to_thread(
+                    processor.transcode, str(base_path), str(temp_path), quality, format_ext
+                )
+                
+                # Rename only when completely finished so other requests don't read partial files
+                if temp_path.exists():
+                    if transcoded_path.exists():
+                        transcoded_path.unlink()
+                    temp_path.rename(transcoded_path)
+                    
+            except Exception as e:
+                log.error(f"[{job_id[:8]}] Transcoding failed: {e}")
+                if temp_path.exists():
+                    try:
+                        temp_path.unlink()
+                    except:
+                        pass
+                # Fallback to the original completed video
+                return FileResponse(str(base_path), media_type="video/mp4", filename=f"karaoke_{job_id}.mp4")
+                
+    media_type = "video/mp4" if format_ext == "mp4" else "video/quicktime"
+    return FileResponse(str(transcoded_path), media_type=media_type, filename=transcoded_name)
 
 
 @app.get("/jobs")

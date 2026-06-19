@@ -1,6 +1,7 @@
 /**
  * Screen 4: Export & Share
- * Save to camera roll, share via native sheet, or post to social platforms.
+ * Download and share the karaoke video via native share sheet.
+ * Uses expo-sharing + expo-file-system (both available in Expo Go).
  */
 
 import React, { useState } from 'react';
@@ -9,17 +10,17 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   Linking,
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import * as MediaLibrary from 'expo-media-library';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { router, useLocalSearchParams } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 type Quality = '720p' | '1080p' | '2K' | '4K Pro';
 type Format = 'MP4' | 'MOV';
@@ -42,39 +43,46 @@ export default function ExportScreen() {
   const estSize = (SIZE_MAP[quality] * (format === 'MOV' ? 1.35 : 1)).toFixed(1);
   const displayName = fileName?.replace(/\.[^/.]+$/, '') || 'Karaoke Video';
 
-  const saveToGallery = async () => {
+  const saveToDevice = async () => {
     setSaving(true);
     try {
-      // Request media library permission
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant access to save videos in Settings.');
-        setSaving(false);
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Not Available', 'Sharing is not supported on this device.');
         return;
       }
 
       if (!outputUrl) {
         Alert.alert('Error', 'No output video URL found.');
-        setSaving(false);
         return;
       }
 
-      // Download video to local cache first
-      const localPath = `${FileSystem.cacheDirectory}karaoke_output.mp4`;
-      const downloadResult = await FileSystem.downloadAsync(outputUrl, localPath);
+      // Append quality and format to request dynamic transcoding on-demand
+      const queryParams = `?quality=${quality}&format=${format}`;
+      const downloadUrl = `${outputUrl}${queryParams}`;
+      
+      const formatExt = format.toLowerCase();
+      const cacheDir = FileSystem.cacheDirectory ?? '';
+      const localPath = `${cacheDir}karaoke_output_${quality}.${formatExt}`;
+      const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
 
       if (downloadResult.status !== 200) {
         throw new Error('Failed to download video from backend');
       }
 
-      // Save to media library
-      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
-      await MediaLibrary.createAlbumAsync('KaraokeAI', asset, false);
+      const mimeType = format === 'MP4' ? 'video/mp4' : 'video/quicktime';
+      const uti = format === 'MP4' ? 'public.movie' : 'com.apple.quicktime-movie';
+
+      // Open native share sheet — user can tap "Save Video" or "Save to Files" or "Save to Drive"
+      await Sharing.shareAsync(downloadResult.uri, {
+        mimeType,
+        dialogTitle: `Save ${displayName}`,
+        UTI: uti,
+      });
 
       setSaved(true);
-      Alert.alert('✅ Saved!', 'Your karaoke video has been saved to your Camera Roll in the KaraokeAI album.');
     } catch (err: any) {
-      Alert.alert('Save Failed', err.message || 'Could not save video to gallery.');
+      Alert.alert('Download Failed', err.message || 'Could not download video.');
     } finally {
       setSaving(false);
     }
@@ -93,16 +101,24 @@ export default function ExportScreen() {
         return;
       }
 
-      // Download first, then share local file
-      const localPath = `${FileSystem.cacheDirectory}karaoke_share.mp4`;
-      const downloadResult = await FileSystem.downloadAsync(outputUrl, localPath);
+      // Append quality and format to request dynamic transcoding on-demand
+      const queryParams = `?quality=${quality}&format=${format}`;
+      const downloadUrl = `${outputUrl}${queryParams}`;
+      
+      const formatExt = format.toLowerCase();
+      const cacheDir = FileSystem.cacheDirectory ?? '';
+      const localPath = `${cacheDir}karaoke_share_${quality}.${formatExt}`;
+      const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
 
       if (downloadResult.status !== 200) throw new Error('Download failed');
 
+      const mimeType = format === 'MP4' ? 'video/mp4' : 'video/quicktime';
+      const uti = format === 'MP4' ? 'public.movie' : 'com.apple.quicktime-movie';
+
       await Sharing.shareAsync(downloadResult.uri, {
-        mimeType: 'video/mp4',
+        mimeType,
         dialogTitle: `Share ${displayName}`,
-        UTI: 'public.movie',
+        UTI: uti,
       });
     } catch (err: any) {
       Alert.alert('Share Failed', err.message);
@@ -111,21 +127,27 @@ export default function ExportScreen() {
 
   const openSocialApp = (platform: string) => {
     const urls: Record<string, string> = {
-      TikTok: 'tiktok://',
+      WhatsApp: 'whatsapp://',
       Instagram: 'instagram://',
-      YouTube: 'youtube://',
+      Telegram: 'tg://',
     };
     const fallbacks: Record<string, string> = {
-      TikTok: 'https://www.tiktok.com',
-      Instagram: 'https://www.instagram.com',
-      YouTube: 'https://www.youtube.com',
+      WhatsApp: 'https://whatsapp.com',
+      Instagram: 'https://instagram.com',
+      Telegram: 'https://telegram.org',
     };
-    Linking.canOpenURL(urls[platform]).then((supported) => {
+    
+    const url = urls[platform];
+    const fallback = fallbacks[platform];
+    
+    Linking.canOpenURL(url).then((supported) => {
       if (supported) {
-        Linking.openURL(urls[platform]);
+        Linking.openURL(url);
       } else {
-        Linking.openURL(fallbacks[platform]);
+        Linking.openURL(fallback);
       }
+    }).catch(() => {
+      Linking.openURL(fallback);
     });
   };
 
@@ -217,16 +239,16 @@ export default function ExportScreen() {
           <Text style={styles.sectionLabel}>Share Directly To</Text>
           <View style={styles.socialRow}>
             {[
-              { name: 'TikTok', bg: '#010101', emoji: '🎵' },
-              { name: 'Instagram', bg: '#E1306C', emoji: '📸' },
-              { name: 'YouTube', bg: '#FF0000', emoji: '▶' },
+              { name: 'WhatsApp', bg: '#25D366', icon: 'whatsapp' },
+              { name: 'Instagram', bg: '#E1306C', icon: 'instagram' },
+              { name: 'Telegram', bg: '#0088cc', icon: 'telegram' },
             ].map((platform) => (
               <TouchableOpacity
                 key={platform.name}
                 style={[styles.socialBtn, { backgroundColor: platform.bg }]}
                 onPress={() => openSocialApp(platform.name)}
               >
-                <Text style={styles.socialEmoji}>{platform.emoji}</Text>
+                <FontAwesome name={platform.icon as any} size={20} color="#fff" style={styles.socialIcon} />
                 <Text style={styles.socialName}>{platform.name}</Text>
               </TouchableOpacity>
             ))}
@@ -243,22 +265,22 @@ export default function ExportScreen() {
       {/* ── Save to Device CTA ── */}
       <View style={styles.ctaContainer}>
         {saved && (
-          <Text style={styles.savedText}>✅ Saved to Camera Roll!</Text>
+          <Text style={styles.savedText}>✅ Video shared successfully!</Text>
         )}
         <TouchableOpacity
           style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={saveToGallery}
+          onPress={saveToDevice}
           disabled={saving}
         >
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.saveBtnText}>
-              {saved ? '✓  Saved to Device' : '⬇  Save to Device'}
+              {saved ? '✓  Download Again' : '⬇  Download & Save'}
             </Text>
           )}
         </TouchableOpacity>
-        <Text style={styles.saveNote}>Export to Camera Roll takes ~15 seconds</Text>
+        <Text style={styles.saveNote}>Tap "Save Video" in the share sheet to save to Camera Roll</Text>
       </View>
     </SafeAreaView>
   );
@@ -356,7 +378,7 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: 14, paddingVertical: 14,
     alignItems: 'center', gap: 4,
   },
-  socialEmoji: { fontSize: 18 },
+  socialIcon: { marginBottom: 6 },
   socialName: { fontSize: 10, fontWeight: '700', color: '#fff' },
 
   nativeShareBtn: {

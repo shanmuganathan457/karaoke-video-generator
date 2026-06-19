@@ -25,7 +25,9 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+// @ts-ignore
 import waterfallImg from './waterfall.png';
+// @ts-ignore
 import outputVideo from './output.mp4';
 
 
@@ -75,7 +77,7 @@ export default function App() {
 
   // Simulated AI Processing progress loop
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (activeScreen === 2) {
       setProcessingProgress(0);
       interval = setInterval(() => {
@@ -95,7 +97,7 @@ export default function App() {
 
   // Video playback simulation
   useEffect(() => {
-    let playbackInterval: NodeJS.Timeout;
+    let playbackInterval: any;
     if (activeScreen === 3 && isPlaying) {
       playbackInterval = setInterval(() => {
         setPlaybackTime(prev => {

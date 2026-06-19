@@ -1,42 +1,45 @@
 /**
  * Screen 3: Preview with Subtitle Overlay
- * Plays the real output video from the Python backend.
- * Shows subtitle text overlay and playback controls.
+ * - Video fills all available space (flex:1), never clips or overflows
+ * - Seek bar is fully draggable (PanResponder)
+ * - Title is inline-editable (tap to rename)
+ * - Skip buttons show icons only (no text)
+ * - 3 action buttons are pinned to the bottom
  */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Alert,
-  Dimensions,
+  PanResponder,
+  LayoutChangeEvent,
   Platform,
+  Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { router, useLocalSearchParams } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const VIDEO_HEIGHT = SCREEN_W * 0.75; // 4:3 ratio
 
-// Sample subtitle lines — in production these come from the backend ASS file
-const SAMPLE_SUBTITLES = [
-  'நடுவானில் நிலவு...',
-  'கண்ணில் தெரியும் ஒளி...',
-  'Midnight Serenade...',
-  'Singing under starlight...',
-];
 
 export default function PreviewScreen() {
   const { outputUrl, fileName } = useLocalSearchParams<{ outputUrl: string; fileName: string }>();
+
   const [isPlaying, setIsPlaying] = useState(true);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [editingTitle, setEditingTitle] = useState(false);
   const [videoTitle, setVideoTitle] = useState(
     fileName?.replace(/\.[^/.]+$/, '') || 'Karaoke Video'
   );
+
+  // Seek bar state
+  const [trackWidth, setTrackWidth] = useState(1);
+  const [seekRatio, setSeekRatio] = useState(0); // 0-1, driven by PanResponder while dragging
+  const isDragging = useRef(false);
 
   // expo-video player
   const player = useVideoPlayer(outputUrl || '', (p) => {
@@ -44,20 +47,25 @@ export default function PreviewScreen() {
     p.play();
   });
 
-  // Format seconds to mm:ss
+  // --- Computed values ---
+  const duration = player.duration || 0;
+  const currentTime = player.currentTime || 0;
+  const ratio = duration > 0 ? (isDragging.current ? seekRatio : currentTime / duration) : 0;
+
   const fmt = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
 
+  // --- Controls ---
   const togglePlayPause = () => {
     if (isPlaying) {
       player.pause();
     } else {
       player.play();
     }
-    setIsPlaying(!isPlaying);
+    setIsPlaying((p) => !p);
   };
 
   const seekBack = () => {
@@ -65,11 +73,13 @@ export default function PreviewScreen() {
   };
 
   const seekForward = () => {
-    player.currentTime = Math.min(player.duration || 0, player.currentTime + 10);
+    player.currentTime = Math.min(duration, player.currentTime + 10);
   };
 
   const handleExport = () => {
-    router.push({ pathname: '/export', params: { outputUrl, fileName } });
+    const formatSuffix = fileName?.substring(fileName.lastIndexOf('.')) || '.mp4';
+    const newFileName = videoTitle.endsWith(formatSuffix) ? videoTitle : `${videoTitle}${formatSuffix}`;
+    router.push({ pathname: '/export', params: { outputUrl, fileName: newFileName } });
   };
 
   const handleRegenerate = () => {
@@ -83,12 +93,51 @@ export default function PreviewScreen() {
     );
   };
 
-  // Subtitle text cycling
-  const subtitleIndex = Math.floor(player.currentTime / 4) % SAMPLE_SUBTITLES.length;
-  const currentSubtitle = SAMPLE_SUBTITLES[subtitleIndex] || '';
+  // --- Draggable seek bar ---
+  const onTrackLayout = (e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width || 1);
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        isDragging.current = true;
+        const x = evt.nativeEvent.locationX;
+        setSeekRatio(Math.min(1, Math.max(0, x / trackWidth)));
+      },
+      onPanResponderMove: (evt) => {
+        const x = evt.nativeEvent.locationX;
+        setSeekRatio(Math.min(1, Math.max(0, x / trackWidth)));
+      },
+      onPanResponderRelease: (evt) => {
+        const x = evt.nativeEvent.locationX;
+        const r = Math.min(1, Math.max(0, x / trackWidth));
+        setSeekRatio(r);
+        if (player.duration) {
+          player.currentTime = r * player.duration;
+        }
+        isDragging.current = false;
+      },
+    })
+  ).current;
+
+
+
+  const titleInputRef = useRef<TextInput>(null);
+  const startEditTitle = () => {
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 50);
+  };
+  const finishEditTitle = () => {
+    setEditingTitle(false);
+    Keyboard.dismiss();
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
+
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -98,13 +147,13 @@ export default function PreviewScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* ── Video Player with Subtitle Overlay ── */}
+      {/* ── Video Player (fills remaining space) ── */}
       <View style={styles.videoWrapper}>
         {outputUrl ? (
           <VideoView
             player={player}
             style={styles.video}
-            contentFit="cover"
+            contentFit="contain"
             nativeControls={false}
           />
         ) : (
@@ -113,24 +162,38 @@ export default function PreviewScreen() {
           </View>
         )}
 
-        {/* Title Edit Badge */}
-        <View style={styles.titleOverlay}>
-          <View style={styles.titleBadge}>
-            <Text style={styles.titleBadgeText} numberOfLines={1}>{videoTitle}</Text>
-            <View style={styles.editTag}>
-              <Text style={styles.editTagText}>EDIT</Text>
+        {/* Inline editable title overlay */}
+        <TouchableOpacity
+          style={styles.titleOverlay}
+          onPress={startEditTitle}
+          activeOpacity={0.8}
+        >
+          {editingTitle ? (
+            <TextInput
+              ref={titleInputRef}
+              style={styles.titleInput}
+              value={videoTitle}
+              onChangeText={setVideoTitle}
+              onBlur={finishEditTitle}
+              onSubmitEditing={finishEditTitle}
+              returnKeyType="done"
+              selectTextOnFocus
+              maxLength={60}
+            />
+          ) : (
+            <View style={styles.titleBadge}>
+              <Text style={styles.titleBadgeText} numberOfLines={1}>
+                ✏️  {videoTitle}
+              </Text>
             </View>
-          </View>
-        </View>
+          )}
+        </TouchableOpacity>
 
-        {/* Subtitle Overlay */}
-        <View style={styles.subtitleOverlay}>
-          <Text style={styles.subtitleText}>{currentSubtitle}</Text>
-        </View>
 
-        {/* Paused indicator */}
+
+        {/* Paused big play icon */}
         {!isPlaying && (
-          <View style={styles.pausedOverlay}>
+          <View style={styles.pausedOverlay} pointerEvents="none">
             <Text style={styles.pausedIcon}>▶</Text>
           </View>
         )}
@@ -138,45 +201,41 @@ export default function PreviewScreen() {
 
       {/* ── Playback Controls ── */}
       <View style={styles.controlCard}>
-        {/* Time Bar */}
+        {/* Times */}
         <View style={styles.timeRow}>
-          <Text style={styles.timeText}>{fmt(player.currentTime)}</Text>
-          <Text style={styles.timeText}>{fmt(player.duration || 0)}</Text>
+          <Text style={styles.timeText}>
+            {fmt(isDragging.current ? ratio * duration : currentTime)}
+          </Text>
+          <Text style={styles.timeText}>{fmt(duration)}</Text>
         </View>
 
-        {/* Progress Bar (visual only) */}
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: player.duration ? `${(player.currentTime / player.duration) * 100}%` : '0%' },
-            ]}
-          />
-          <View
-            style={[
-              styles.progressThumb,
-              { left: player.duration ? `${(player.currentTime / player.duration) * 100}%` : '0%' },
-            ]}
-          />
+        {/* Draggable progress bar */}
+        <View
+          style={styles.progressTrack}
+          onLayout={onTrackLayout}
+          {...panResponder.panHandlers}
+          hitSlop={{ top: 12, bottom: 12, left: 0, right: 0 }}
+        >
+          <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
+          <View style={[styles.progressThumb, { left: `${ratio * 100}%` }]} />
         </View>
 
-        {/* Buttons */}
         <View style={styles.buttonsRow}>
           <TouchableOpacity onPress={seekBack} style={styles.iconBtn}>
-            <Text style={styles.iconBtnText}>↩  10s</Text>
+            <MaterialIcons name="replay-10" size={32} color="#9CA3AF" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={togglePlayPause} style={styles.playBtn}>
-            <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
+            <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={36} color="#fff" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={seekForward} style={styles.iconBtn}>
-            <Text style={styles.iconBtnText}>10s  ↪</Text>
+            <MaterialIcons name="forward-10" size={32} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Action Bar ── */}
+      {/* ── Action Buttons (pinned to bottom) ── */}
       <View style={styles.actionBar}>
         <TouchableOpacity
           style={styles.actionSecondary}
@@ -201,119 +260,185 @@ export default function PreviewScreen() {
 const PURPLE = '#7C3AED';
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFAFA' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#000',  // Black bg so video always blends
+  },
 
+  // Header
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: '#000',
   },
   backBtn: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
-  backIcon: { fontSize: 28, color: '#374151', fontWeight: '300' },
+  backIcon: { fontSize: 28, color: '#fff', fontWeight: '300' },
   logo: { fontSize: 20, fontWeight: '800', color: PURPLE },
 
+  // Video fills remaining space
   videoWrapper: {
-    marginHorizontal: 16,
-    height: VIDEO_HEIGHT,
-    borderRadius: 24,
-    overflow: 'hidden',
+    flex: 1,                   // ← takes ALL remaining space
     backgroundColor: '#000',
-    marginBottom: 16,
     position: 'relative',
   },
-  video: { width: '100%', height: '100%' },
+  video: {
+    width: '100%',
+    height: '100%',            // ← fills parent completely
+  },
   videoPlaceholder: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#1F2937',
   },
   placeholderText: { color: '#9CA3AF', fontSize: 16 },
 
+  // Inline title overlay on top of video
   titleOverlay: {
-    position: 'absolute', top: 16, left: 0, right: 0,
-    alignItems: 'center', zIndex: 10,
+    position: 'absolute',
+    top: 12,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
   },
   titleBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
-  titleBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600', maxWidth: 160 },
-  editTag: { backgroundColor: 'rgba(124,58,237,0.8)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  editTagText: { color: '#fff', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  titleBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    maxWidth: 220,
+  },
+  titleInput: {
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: PURPLE,
+    minWidth: 180,
+    textAlign: 'center',
+  },
 
-  subtitleOverlay: {
-    position: 'absolute', bottom: 16, left: 12, right: 12,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 14, padding: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-  },
-  subtitleText: {
-    color: '#fff', fontSize: 14, fontWeight: '800',
-    textAlign: 'center', lineHeight: 22,
-    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
-  },
 
+
+  // Paused overlay
   pausedOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.3)',
-    alignItems: 'center', justifyContent: 'center',
-    pointerEvents: 'none',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pausedIcon: { fontSize: 48, color: 'rgba(255,255,255,0.8)' },
+  pausedIcon: { fontSize: 52, color: 'rgba(255,255,255,0.85)' },
 
+  // Controls card
   controlCard: {
-    marginHorizontal: 16,
-    backgroundColor: '#fff',
-    borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: '#F3F4F6',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-    marginBottom: 16, gap: 12,
+    backgroundColor: '#111',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 10,
+    gap: 10,
   },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  timeText: { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
+  timeText: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
 
+  // Draggable seek bar — taller hit area via hitSlop on parent
   progressTrack: {
-    height: 4, backgroundColor: '#F3F4F6',
-    borderRadius: 2, overflow: 'visible', position: 'relative',
+    height: 4,
+    backgroundColor: '#2D2D2D',
+    borderRadius: 2,
+    position: 'relative',
+    overflow: 'visible',
   },
-  progressFill: { height: '100%', backgroundColor: PURPLE, borderRadius: 2 },
+  progressFill: {
+    height: '100%',
+    backgroundColor: PURPLE,
+    borderRadius: 2,
+  },
   progressThumb: {
-    position: 'absolute', top: -4,
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: PURPLE, marginLeft: -6,
+    position: 'absolute',
+    top: -7,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: PURPLE,
+    marginLeft: -9,
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 5,
   },
 
-  buttonsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28 },
-  iconBtn: { paddingHorizontal: 8, paddingVertical: 6 },
-  iconBtnText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
+  buttonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 36,
+    paddingTop: 2,
+  },
+  iconBtn: { padding: 10 },
+  iconBtnText: { fontSize: 22, color: '#9CA3AF' },
   playBtn: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center',
-    shadowColor: PURPLE, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  playBtnText: { fontSize: 20, color: '#fff' },
+  playBtnText: { fontSize: 22, color: '#fff' },
 
+  // Action buttons — pinned at bottom (no flex, always visible)
   actionBar: {
-    flexDirection: 'row', gap: 10,
+    flexDirection: 'row',
+    gap: 10,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 4 : 12,
+    backgroundColor: '#111',
   },
   actionSecondary: {
-    flex: 1, paddingVertical: 14, borderRadius: 16,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB',
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#1E1E1E',
+    borderWidth: 1,
+    borderColor: '#2D2D2D',
     alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  actionSecondaryText: { fontSize: 12, fontWeight: '700', color: '#374151' },
+  actionSecondaryText: { fontSize: 12, fontWeight: '700', color: '#D1D5DB' },
   actionPrimary: {
-    flex: 1, paddingVertical: 14, borderRadius: 16,
-    backgroundColor: PURPLE, alignItems: 'center',
-    shadowColor: PURPLE, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: PURPLE,
+    alignItems: 'center',
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   actionPrimaryText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 });
