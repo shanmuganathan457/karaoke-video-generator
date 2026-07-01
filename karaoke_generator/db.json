@@ -1,0 +1,30 @@
+{
+    "users": {
+        "53090edf-b6bf-4842-9df2-8938495af518": {
+            "id": "53090edf-b6bf-4842-9df2-8938495af518",
+            "email": "vshanmuganathan0@gmail.com",
+            "hashed_password": "$2b$12$uIEgkfG6m8bq1mlB026OMe0JTw9rYD.s8Zu2idiZm0bmAsH/YNidW",
+            "name": "Shanmuga",
+            "created_at": "2026-06-23T08:50:25.277651",
+            "tokens": 95,
+            "plan": "Pro",
+            "project_count": 1
+        }
+    },
+    "projects": {
+        "acf72202-4011-4555-9d3a-2f884b25cf14": {
+            "id": "acf72202-4011-4555-9d3a-2f884b25cf14",
+            "user_id": "53090edf-b6bf-4842-9df2-8938495af518",
+            "name": "1000184289.mp4",
+            "status": "completed",
+            "language": "Auto",
+            "duration": 47.72712,
+            "input_path": "inputs\\acf72202-4011-4555-9d3a-2f884b25cf14.mp4",
+            "output_path": "outputs\\karaoke_acf72202-4011-4555-9d3a-2f884b25cf14.mp4",
+            "subtitle_path": "outputs\\acf72202-4011-4555-9d3a-2f884b25cf14.ass",
+            "error_message": "",
+            "created_at": "2026-06-24T09:32:15.555140",
+            "token_cost": 1
+        }
+    }
+}

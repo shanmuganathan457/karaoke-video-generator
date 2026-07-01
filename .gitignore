@@ -1,0 +1,28 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Python virtual environment
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Video/Audio files
+*.mp4
+*.wav
+
+# Subtitles
+*.ass
+
+# Text/Lyrics files
+*.txt
+
+# Thumbnails
+thumbnails/*.jpg
+thumbnails/*.png
