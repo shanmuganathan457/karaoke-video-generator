@@ -1,6 +1,0 @@
-{
-  "name": "Karaoke Video Generator",
-  "description": "A Python-powered project that converts videos into karaoke-style videos with synchronized word-level subtitles using Faster-Whisper and FFmpeg.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
