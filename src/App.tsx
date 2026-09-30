@@ -22,7 +22,8 @@ import {
   FileText,
   Smartphone,
   Cpu,
-  ArrowRight
+  ArrowRight,
+  Monitor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 // @ts-ignore
@@ -51,6 +52,7 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -164,17 +166,12 @@ export default function App() {
           <p className="text-slate-400 text-base leading-relaxed">
             Transform any video into a synchronized karaoke track using advanced AI vocal separation and centisecond-level speech transcription.
           </p>
-          <div className="pt-2 flex flex-wrap gap-3">
-            <button onClick={() => {
-              const el = document.getElementById('app-simulator');
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              } else {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-              }
-            }} className="px-6 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-2.5 shadow-lg shadow-violet-600/30 transition-all cursor-pointer group">
-              <Smartphone size={18} /> Open Mobile App Demo
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          <div className="pt-4 flex flex-wrap gap-4">
+            <button onClick={() => setAppMode('mobile')} className="px-6 py-4 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-3 shadow-lg shadow-violet-600/30 transition-all cursor-pointer">
+              <Smartphone size={22} /> Mobile App Browser
+            </button>
+            <button onClick={() => setAppMode('desktop')} className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl flex items-center gap-3 border border-slate-700 shadow-lg transition-all cursor-pointer">
+              <Monitor size={22} /> Desktop Mode
             </button>
           </div>
 
@@ -214,9 +211,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: Premium Phone frame wrapper */}
-        <div id="app-simulator" className="lg:col-span-7 flex justify-center py-4">
-          <div className="relative w-[360px] h-[740px] bg-slate-950 border-[10px] border-slate-900 rounded-[50px] shadow-[0_0_80px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col justify-between">
+        {/* Center: Premium Phone/Desktop frame wrapper */}
+        <div id="app-simulator" className={appMode !== 'landing' ? "fixed inset-0 z-[100] bg-[#0c0f1e] flex flex-col items-center justify-center overflow-auto p-4" : "lg:col-span-7 flex justify-center py-4"}>
+          {appMode !== 'landing' && (
+            <div className="absolute top-6 left-6 z-50">
+              <button onClick={() => setAppMode('landing')} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold text-sm backdrop-blur-md transition-all cursor-pointer">
+                <ChevronLeft size={18} /> Back to Landing
+              </button>
+            </div>
+          )}
+          <div className={`relative ${appMode === 'desktop' ? 'w-full max-w-[1024px] h-[720px] rounded-3xl' : 'w-[360px] h-[740px] rounded-[50px] shrink-0'} bg-slate-950 border-[10px] border-slate-900 shadow-[0_0_80px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col justify-between transition-all duration-500`}>
             {/* Phone Notch/Speaker */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-6 bg-slate-900 rounded-b-2xl z-40 flex justify-center items-center">
               <div className="w-16 h-1 bg-slate-950 rounded-full" />
