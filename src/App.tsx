@@ -28,7 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 // @ts-ignore
 import waterfallImg from './waterfall.png';
 // @ts-ignore
-import outputVideo from './output.mp4';
+const outputVideo = '';
 
 
 // Subtitle segments to show lyrics overlaying waterfall video
