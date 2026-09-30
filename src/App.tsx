@@ -276,7 +276,11 @@ export default function App() {
 
                       {/* Drag and Drop Card */}
                       <button 
-                        onClick={() => handleUploadClick('custom_video.mp4')}
+                        onClick={() => {
+                  const inputEl = document.getElementById('real-file-input');
+                  if (inputEl) inputEl.click();
+                  else handleUploadClick('custom_video.mp4');
+                }}
                         className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-12 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
                       >
                         <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
@@ -643,7 +647,15 @@ export default function App() {
                     <div className="mt-auto space-y-2 pt-4">
                       {/* Big action Save to Device */}
                       <button 
-                        onClick={() => triggerToast("Saved to Device Gallery!")}
+                        onClick={() => {
+                  triggerToast("Downloading Karaoke Video...");
+                  const a = document.createElement("a");
+                  a.href = waterfallImg;
+                  a.download = "karaoke_output.mp4";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
                         className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-200 transition-colors cursor-pointer"
                       >
                         <Download size={16} /> Save to Device
