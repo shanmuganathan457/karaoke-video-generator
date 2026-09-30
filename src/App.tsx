@@ -53,6 +53,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -120,8 +121,9 @@ export default function App() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleUploadClick = (fileName: string) => {
+  const handleUploadClick = (fileName: string, fileUrl?: string) => {
     setSelectedFile(fileName);
+    if (fileUrl) setUploadedVideoUrl(fileUrl);
     setActiveScreen(2);
   };
 
@@ -286,12 +288,25 @@ export default function App() {
                       </div>
 
                       {/* Drag and Drop Card */}
+                      <input 
+                        type="file" 
+                        id="real-file-input" 
+                        accept="video/*,audio/*" 
+                        className="hidden" 
+                        onChange={(e) => { 
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            const url = URL.createObjectURL(file);
+                            handleUploadClick(file.name, url);
+                          }
+                        }} 
+                      />
                       <button 
                         onClick={() => {
-                  const inputEl = document.getElementById('real-file-input');
-                  if (inputEl) inputEl.click();
-                  else handleUploadClick('custom_video.mp4');
-                }}
+                          const inputEl = document.getElementById('real-file-input');
+                          if (inputEl) inputEl.click();
+                          else handleUploadClick('custom_video.mp4');
+                        }}
                         className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-12 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
                       >
                         <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
@@ -436,11 +451,24 @@ export default function App() {
                   >
                     {/* Video Player Display Container */}
                     <div className="relative w-full aspect-square rounded-3xl overflow-hidden shadow-md border border-slate-100 bg-black flex items-center justify-center">
-                      <img 
-                        src={waterfallImg}
-                        alt="video preview" 
-                        className="w-full h-full object-cover opacity-60" 
-                      />
+                      {uploadedVideoUrl ? (
+                        <video 
+                          ref={videoRef}
+                          src={uploadedVideoUrl} 
+                          className="w-full h-full object-cover opacity-80" 
+                          autoPlay 
+                          loop 
+                          muted 
+                          playsInline
+                          controls={false}
+                        />
+                      ) : (
+                        <img 
+                          src={waterfallImg}
+                          alt="video preview" 
+                          className="w-full h-full object-cover opacity-60" 
+                        />
+                      )}
                       
                       {/* Subtitle Overlay Text Box */}
                       <div className="absolute top-6 left-0 right-0 px-6 text-center z-10">
@@ -564,11 +592,15 @@ export default function App() {
 
                       {/* Mini Song card */}
                       <div className="bg-white border border-slate-100 p-2.5 rounded-2xl flex items-center gap-3 shadow-2xs">
-                        <img 
-                          src={waterfallImg} 
-                          alt="Thumbnail" 
-                          className="w-12 h-12 object-cover rounded-lg"
-                        />
+                        {uploadedVideoUrl ? (
+                          <video src={uploadedVideoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                        ) : (
+                          <img 
+                            src={waterfallImg} 
+                            alt="Thumbnail" 
+                            className="w-12 h-12 object-cover rounded-lg"
+                          />
+                        )}
                         <div className="flex-grow text-left">
                           <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">{videoTitle}</h4>
                           <span className="text-[9px] text-slate-400 block font-mono">03:42</span>
