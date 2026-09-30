@@ -162,8 +162,14 @@ export default function App() {
             Karaoke<span className="text-violet-500">AI</span> Mobile
           </h1>
           <p className="text-slate-400 text-base leading-relaxed">
-            Replace the old engineering interface with your custom premium app design. This simulator lets you interact with the real-time AI audio extraction, transcriber, and format export workflow.
+            Transform any video into a synchronized karaoke track using advanced AI vocal separation and centisecond-level speech transcription.
           </p>
+          <div className="pt-2 flex flex-wrap gap-3">
+            <button onClick={() => { const el = document.getElementById('app-simulator'); if (el) el.scrollIntoView( { behavior: 'smooth' }); }} className="px-6 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-2.5 shadow-lg shadow-violet-600/30 transition-all cursor-pointer group">
+              <Smartphone size={18} /> Open Mobile App Demo
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
 
           {/* Interactive Screen Selector Control Panel */}
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-4">
