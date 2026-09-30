@@ -432,15 +432,10 @@ export default function App() {
                   >
                     {/* Video Player Display Container */}
                     <div className="relative w-full aspect-square rounded-3xl overflow-hidden shadow-md border border-slate-100 bg-black flex items-center justify-center">
-                      <video 
-                        ref={videoRef}
-                        src={outputVideo} 
-                        className="w-full h-full object-cover" 
-                        autoPlay 
-                        loop 
-                        muted 
-                        playsInline
-                        controls={false}
+                      <img 
+                        src={waterfallImg}
+                        alt="video preview" 
+                        className="w-full h-full object-cover opacity-60" 
                       />
                       
                       {/* Subtitle Overlay Text Box */}
