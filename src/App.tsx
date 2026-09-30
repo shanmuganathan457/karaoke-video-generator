@@ -124,6 +124,9 @@ export default function App() {
         // Send to real Python backend!
         const response = await fetch("https://defiance-trustable-washstand.ngrok-free.dev/generate", {
           method: "POST",
+          headers: {
+            "ngrok-skip-browser-warning": "69420"
+          },
           body: formData,
         });
 
