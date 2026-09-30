@@ -78,33 +78,13 @@ export default function App() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Simulated AI Processing progress loop
-  useEffect(() => {
-    let interval: any;
-    if (activeScreen === 2) {
-      setProcessingProgress(0);
-      interval = setInterval(() => {
-        setProcessingProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            // Auto advance to subtitle preview screen
-            setTimeout(() => setActiveScreen(3), 800);
-            return 100;
-          }
-          return prev + 1;
-        });
-      }, 80);
-    }
-    return () => clearInterval(interval);
-  }, [activeScreen]);
-
-  // Video playback simulation
+  // Video playback simulation (keep for Screen 3)
   useEffect(() => {
     let playbackInterval: any;
     if (activeScreen === 3 && isPlaying) {
       playbackInterval = setInterval(() => {
         setPlaybackTime(prev => {
-          if (prev >= 195) { // 3:15 max
+          if (prev >= 195) { 
             if (videoRef.current) videoRef.current.currentTime = 0;
             return 0;
           }
@@ -121,10 +101,52 @@ export default function App() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleUploadClick = (fileName: string, fileUrl?: string) => {
+  const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
+
+  const handleUploadClick = async (fileName: string, fileUrl?: string, file?: File) => {
     setSelectedFile(fileName);
     if (fileUrl) setUploadedVideoUrl(fileUrl);
+    if (file) setUploadedVideoFile(file);
     setActiveScreen(2);
+
+    if (file) {
+      // Fake progress bar while waiting for real API
+      setProcessingProgress(5);
+      const fakeProgress = setInterval(() => {
+        setProcessingProgress(p => p < 90 ? p + 2 : p);
+      }, 3000);
+
+      try {
+        const formData = new FormData();
+        formData.append("video", file);
+        formData.append("romanize", "true");
+
+        // Send to real Python backend!
+        const response = await fetch("https://defiance-trustable-washstand.ngrok-free.dev/generate", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const finalVideoUrl = URL.createObjectURL(blob);
+          setUploadedVideoUrl(finalVideoUrl); // Replace input with final processed video
+          
+          clearInterval(fakeProgress);
+          setProcessingProgress(100);
+          
+          setTimeout(() => setActiveScreen(3), 800);
+        } else {
+          console.error("Backend error");
+          clearInterval(fakeProgress);
+          triggerToast("Processing failed. Please check backend logs.");
+        }
+      } catch (err) {
+        console.error(err);
+        clearInterval(fakeProgress);
+        triggerToast("Network Error connecting to backend.");
+      }
+    }
   };
 
   // Determine estimated file size based on quality & format
@@ -297,7 +319,7 @@ export default function App() {
                           if (e.target.files && e.target.files[0]) {
                             const file = e.target.files[0];
                             const url = URL.createObjectURL(file);
-                            handleUploadClick(file.name, url);
+                            handleUploadClick(file.name, url, file);
                           }
                         }} 
                       />
