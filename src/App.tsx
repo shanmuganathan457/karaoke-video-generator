@@ -165,7 +165,14 @@ export default function App() {
             Transform any video into a synchronized karaoke track using advanced AI vocal separation and centisecond-level speech transcription.
           </p>
           <div className="pt-2 flex flex-wrap gap-3">
-            <button onClick={() => { const el = document.getElementById('app-simulator'); if (el) el.scrollIntoView( { behavior: 'smooth' }); }} className="px-6 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-2.5 shadow-lg shadow-violet-600/30 transition-all cursor-pointer group">
+            <button onClick={() => {
+              const el = document.getElementById('app-simulator');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } else {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+              }
+            }} className="px-6 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-2.5 shadow-lg shadow-violet-600/30 transition-all cursor-pointer group">
               <Smartphone size={18} /> Open Mobile App Demo
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
@@ -208,7 +215,7 @@ export default function App() {
         </div>
 
         {/* Center: Premium Phone frame wrapper */}
-        <div className="lg:col-span-7 flex justify-center py-4">
+        <div id="app-simulator" className="lg:col-span-7 flex justify-center py-4">
           <div className="relative w-[360px] h-[740px] bg-slate-950 border-[10px] border-slate-900 rounded-[50px] shadow-[0_0_80px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col justify-between">
             {/* Phone Notch/Speaker */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-6 bg-slate-900 rounded-b-2xl z-40 flex justify-center items-center">
