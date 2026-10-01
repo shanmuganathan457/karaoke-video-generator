@@ -483,9 +483,8 @@ export default function App() {
                           className="w-full h-full object-cover opacity-80" 
                           autoPlay 
                           loop 
-                          muted 
                           playsInline
-                          controls={false}
+                          controls={true}
                         />
                       ) : (
                         <img 
@@ -516,12 +515,7 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Centered highlighted lyrics mockup */}
-                      <div className="absolute inset-x-4 bottom-8 bg-black/40 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
-                        <p className="text-white text-[13px] font-black tracking-wide leading-tight">
-                          {sampleSubtitles[Math.floor(playbackTime / 4) % sampleSubtitles.length]}
-                        </p>
-                      </div>
+                      {/* Dummy subtitles removed because backend video has burned-in subtitles */}
 
                       {/* Play/Pause Overlay indicator */}
                       {!isPlaying && (
@@ -711,14 +705,18 @@ export default function App() {
                       {/* Big action Save to Device */}
                       <button 
                         onClick={() => {
-                  triggerToast("Downloading Karaoke Video...");
-                  const a = document.createElement("a");
-                  a.href = waterfallImg;
-                  a.download = "karaoke_output.mp4";
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                }}
+                          if (uploadedVideoUrl) {
+                            triggerToast("Downloading Karaoke Video...");
+                            const a = document.createElement("a");
+                            a.href = uploadedVideoUrl;
+                            a.download = videoTitle ? `${videoTitle.replace(/\s+/g, '_')}_karaoke.mp4` : "karaoke_output.mp4";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          } else {
+                            triggerToast("No video ready to download!");
+                          }
+                        }}
                         className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-200 transition-colors cursor-pointer"
                       >
                         <Download size={16} /> Save to Device
