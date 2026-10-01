@@ -475,12 +475,12 @@ export default function App() {
                     className="flex-grow flex flex-col justify-between py-2 space-y-4"
                   >
                     {/* Video Player Display Container */}
-                    <div className="relative w-full aspect-square rounded-3xl overflow-hidden shadow-md border border-slate-100 bg-black flex items-center justify-center">
+                    <div className="relative w-full min-h-[40vh] max-h-[60vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center">
                       {uploadedVideoUrl ? (
                         <video 
                           ref={videoRef}
                           src={uploadedVideoUrl} 
-                          className="w-full h-full object-cover opacity-80" 
+                          className="w-full h-full object-contain" 
                           autoPlay 
                           loop 
                           playsInline
@@ -490,7 +490,7 @@ export default function App() {
                         <img 
                           src={waterfallImg}
                           alt="video preview" 
-                          className="w-full h-full object-cover opacity-60" 
+                          className="w-full h-full object-contain opacity-60" 
                         />
                       )}
                       
@@ -516,50 +516,31 @@ export default function App() {
                       </div>
 
                       {/* Dummy subtitles removed because backend video has burned-in subtitles */}
-
-                      {/* Play/Pause Overlay indicator */}
-                      {!isPlaying && (
-                        <div className="absolute inset-0 bg-black/35 flex items-center justify-center pointer-events-none">
-                          <Play size={40} className="text-white opacity-80" />
-                        </div>
-                      )}
                     </div>
 
-                    {/* Timeline Controls */}
-                    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-4 shadow-2xs">
-                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                        <span>{formatTime(playbackTime)}</span>
-                        <span>03:15</span>
-                      </div>
-
-                      {/* Custom slider progress bar */}
-                      <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden cursor-pointer">
-                        <div 
-                          className="absolute h-full bg-violet-600 rounded-full" 
-                          style={{ width: `${(playbackTime / 195) * 100}%` }}
+                    {/* Subtitle Appearance Editor (Mock UI for now since subtitles are burned into the video) */}
+                    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-2xs">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Subtitle Styling</span>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <span>Font Size</span>
+                          <span className="text-violet-600">Large</span>
+                        </div>
+                        <input 
+                          type="range" min="10" max="40" defaultValue="24" 
+                          className="w-full accent-violet-600" 
+                          onChange={() => triggerToast("Styles apply on next generation!")}
                         />
-                      </div>
-
-                      {/* Playback Control keys */}
-                      <div className="flex items-center justify-center gap-6">
-                        <button 
-                          onClick={() => setPlaybackTime(Math.max(0, playbackTime - 10))}
-                          className="p-2 text-slate-500 hover:text-slate-800 transition-colors"
-                        >
-                          <RotateCcw size={18} />
-                        </button>
-                        <button 
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="w-12 h-12 rounded-full bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center transition-colors shadow-sm"
-                        >
-                          {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} className="ml-1" fill="currentColor" />}
-                        </button>
-                        <button 
-                          onClick={() => setPlaybackTime(Math.min(195, playbackTime + 10))}
-                          className="p-2 text-slate-500 hover:text-slate-800 transition-colors"
-                        >
-                          <ArrowRight size={18} />
-                        </button>
+                        
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-600 mt-2">
+                          <span>Alignment</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button onClick={() => triggerToast("Styles apply on next generation!")} className="py-1.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-lg text-xs font-bold shadow-sm">Bottom</button>
+                          <button onClick={() => triggerToast("Styles apply on next generation!")} className="py-1.5 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-100">Middle</button>
+                          <button onClick={() => triggerToast("Styles apply on next generation!")} className="py-1.5 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-100">Top</button>
+                        </div>
                       </div>
                     </div>
 
