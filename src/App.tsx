@@ -55,6 +55,12 @@ export default function App() {
   const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
 
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [segments, setSegments] = useState<any[]>([]);
+  const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 24, alignment: 'bottom' });
+  const [isExporting, setIsExporting] = useState(false);
+  const apiBaseUrl = "https://defiance-trustable-washstand.ngrok-free.dev";
+
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   // Sync play/pause with state
@@ -122,7 +128,7 @@ export default function App() {
         formData.append("romanize", "true");
 
         // Send to real Python backend!
-        const response = await fetch("https://defiance-trustable-washstand.ngrok-free.dev/generate", {
+        const response = await fetch(`${apiBaseUrl}/generate`, {
           method: "POST",
           headers: {
             "ngrok-skip-browser-warning": "69420"
@@ -131,9 +137,10 @@ export default function App() {
         });
 
         if (response.ok) {
-          const blob = await response.blob();
-          const finalVideoUrl = URL.createObjectURL(blob);
-          setUploadedVideoUrl(finalVideoUrl); // Replace input with final processed video
+          const data = await response.json();
+          setJobId(data.job_id);
+          setSegments(data.segments);
+          setUploadedVideoUrl(apiBaseUrl + data.video_url); // Stream unburned video from Colab
           
           clearInterval(fakeProgress);
           setProcessingProgress(100);
@@ -152,7 +159,6 @@ export default function App() {
     }
   };
 
-  // Determine estimated file size based on quality & format
   const getFileSize = () => {
     let base = 42.8;
     if (selectedQuality === '720p') base = 18.4;
@@ -161,6 +167,41 @@ export default function App() {
     if (selectedFormat === 'MOV') base = base * 1.35;
     return base.toFixed(1);
   };
+
+  const handleExport = async () => {
+    if (!jobId) return;
+    setIsExporting(true);
+    setActiveScreen(4); // Jump to export screen immediately
+    triggerToast("Burning final subtitles... Please wait!");
+    
+    try {
+      const response = await fetch(`${apiBaseUrl}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: jobId,
+          segments: segments,
+          font_size: subtitleStyle.fontSize,
+          alignment: subtitleStyle.alignment === 'top' ? 8 : subtitleStyle.alignment === 'middle' ? 5 : 2
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUploadedVideoUrl(apiBaseUrl + data.video_url); // The final burned video
+        triggerToast("Export successful! Ready to share.");
+        setIsExporting(false);
+      } else {
+        triggerToast("Export failed on server!");
+        setIsExporting(false);
+      }
+    } catch(e) {
+      triggerToast("Network error during export.");
+      setIsExporting(false);
+    }
+  };
+
+  const activeSegment = segments.find(s => playbackTime >= s.start && playbackTime <= s.end);
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans text-slate-100 flex flex-col items-center justify-between selection:bg-violet-600 selection:text-white">
@@ -485,6 +526,7 @@ export default function App() {
                           loop 
                           playsInline
                           controls={true}
+                          onTimeUpdate={() => setPlaybackTime(videoRef.current?.currentTime || 0)}
                         />
                       ) : (
                         <img 
@@ -515,31 +557,54 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Dummy subtitles removed because backend video has burned-in subtitles */}
+                      {/* Dynamic Real-Time Subtitle Overlay */}
+                      {activeSegment && (
+                        <div className={`absolute left-0 right-0 px-6 text-center z-10 pointer-events-none transition-all duration-75 ${
+                          subtitleStyle.alignment === 'top' ? 'top-10' : 
+                          subtitleStyle.alignment === 'middle' ? 'top-1/2 -translate-y-1/2' : 'bottom-12'
+                        }`}>
+                          <p 
+                            className="text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight" 
+                            style={{ fontSize: `${subtitleStyle.fontSize}px` }}
+                          >
+                            {activeSegment.words ? activeSegment.words.map((w: any, i: number) => (
+                              <span key={i} className={playbackTime >= w.start ? "text-violet-400 drop-shadow-[0_0_8px_rgba(124,58,237,0.8)]" : "text-white"}>
+                                {w.word}
+                              </span>
+                            )) : activeSegment.text}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Subtitle Appearance Editor (Mock UI for now since subtitles are burned into the video) */}
+                    {/* Subtitle Appearance Editor (Real-Time) */}
                     <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-2xs">
                       <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Subtitle Styling</span>
                       
                       <div className="space-y-3">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-600">
                           <span>Font Size</span>
-                          <span className="text-violet-600">Large</span>
+                          <span className="text-violet-600">{subtitleStyle.fontSize}px</span>
                         </div>
                         <input 
-                          type="range" min="10" max="40" defaultValue="24" 
+                          type="range" min="12" max="64" value={subtitleStyle.fontSize}
                           className="w-full accent-violet-600" 
-                          onChange={() => triggerToast("Styles apply on next generation!")}
+                          onChange={(e) => setSubtitleStyle({...subtitleStyle, fontSize: parseInt(e.target.value)})}
                         />
                         
                         <div className="flex items-center justify-between text-xs font-bold text-slate-600 mt-2">
                           <span>Alignment</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <button onClick={() => triggerToast("Styles apply on next generation!")} className="py-1.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-lg text-xs font-bold shadow-sm">Bottom</button>
-                          <button onClick={() => triggerToast("Styles apply on next generation!")} className="py-1.5 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-100">Middle</button>
-                          <button onClick={() => triggerToast("Styles apply on next generation!")} className="py-1.5 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-100">Top</button>
+                          {['bottom', 'middle', 'top'].map(align => (
+                            <button 
+                              key={align}
+                              onClick={() => setSubtitleStyle({...subtitleStyle, alignment: align})} 
+                              className={`py-1.5 rounded-lg text-xs font-bold shadow-sm capitalize transition-colors ${subtitleStyle.alignment === align ? 'bg-violet-50 text-violet-600 border border-violet-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                            >
+                              {align}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -562,10 +627,11 @@ export default function App() {
                         Regenerate
                       </button>
                       <button 
-                        onClick={() => setActiveScreen(4)}
-                        className="py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-center text-xs font-bold shadow-md shadow-violet-200 transition-all cursor-pointer"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className={`py-2.5 text-white rounded-xl text-center text-xs font-bold shadow-md transition-all cursor-pointer ${isExporting ? 'bg-slate-400' : 'bg-violet-600 hover:bg-violet-700 shadow-violet-200'}`}
                       >
-                        Export
+                        {isExporting ? 'Processing...' : 'Export'}
                       </button>
                     </div>
                   </motion.div>
@@ -581,13 +647,27 @@ export default function App() {
                     <div className="space-y-4">
                       {/* Checkmark Banner */}
                       <div className="text-center py-2 space-y-1.5">
-                        <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
-                          <Check size={20} strokeWidth={3} />
-                        </div>
-                        <h2 className="text-sm font-bold text-slate-800">Ready to Share!</h2>
-                        <p className="text-[10px] text-slate-400 leading-snug px-6">
-                          Your AI-enhanced masterpiece is processed and ready for the world.
-                        </p>
+                        {isExporting ? (
+                          <>
+                            <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center mx-auto shadow-2xs">
+                              <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                            <h2 className="text-sm font-bold text-slate-800">Burning Final Subtitles...</h2>
+                            <p className="text-[10px] text-slate-400 leading-snug px-6">
+                              The backend is permanently burning your customized lyrics into the video pixels.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
+                              <Check size={20} strokeWidth={3} />
+                            </div>
+                            <h2 className="text-sm font-bold text-slate-800">Ready to Share!</h2>
+                            <p className="text-[10px] text-slate-400 leading-snug px-6">
+                              Your AI-enhanced masterpiece is processed and ready for the world.
+                            </p>
+                          </>
+                        )}
                       </div>
 
                       {/* Mini Song card */}
