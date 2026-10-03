@@ -422,13 +422,15 @@ export default function App() {
                     initial={{ opacity: 0, y: 15 }} 
                     animate={{ opacity: 1, y: 0 }} 
                     exit={{ opacity: 0, y: -15 }}
-                    className="flex-grow flex flex-col justify-between py-2"
+                    className="flex-grow flex flex-col justify-between py-2 min-h-full"
                   >
                     <div className="space-y-4">
                       <div className="text-center space-y-1 py-2">
                         <h2 className="text-sm font-bold text-slate-700">Create New Karaoke</h2>
                         <p className="text-[11px] text-slate-400 leading-snug px-6">
-                          Upload a video to isolate vocals and generate lyrics using AI.
+                          {uploadMode === 'custom' 
+                            ? 'Upload a video and paste lyrics to sync them using AI.'
+                            : 'Upload a video to isolate vocals and generate lyrics using AI.'}
                         </p>
                       </div>
 
@@ -533,20 +535,18 @@ export default function App() {
                           ))}
                         </div>
                       )}
+                    </div>
 
-                      {/* Process Button */}
-                      <div className="pt-2">
-                        <button
-                          onClick={handleStartProcess}
-                          className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
-                        >
-                          <Sparkles size={18} />
-                          <span className="text-xs">
-                            {uploadMode === 'custom' ? 'Process Video with Custom Lyrics' : 'Process Video & Generate Lyrics'}
-                          </span>
-                          <ChevronRight size={18} />
-                        </button>
-                      </div>
+                    {/* Process Button - Pinned to bottom */}
+                    <div className="pt-4 mt-auto shrink-0">
+                      <button
+                        onClick={handleStartProcess}
+                        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+                      >
+                        <Sparkles size={18} />
+                        <span className="text-xs tracking-wide">Process</span>
+                        <ChevronRight size={18} />
+                      </button>
                     </div>
                   </motion.div>
                 )}
