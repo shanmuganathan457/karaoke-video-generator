@@ -130,13 +130,27 @@ export default function App() {
 
   const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
 
-  const handleUploadClick = async (fileName: string, fileUrl?: string, file?: File) => {
+  const handleFileSelect = (fileName: string, fileUrl?: string, file?: File) => {
     setSelectedFile(fileName);
     if (fileUrl) setUploadedVideoUrl(fileUrl);
     if (file) setUploadedVideoFile(file);
+    triggerToast(`Selected: ${fileName}`);
+  };
+
+  const handleStartProcess = async () => {
+    if (!uploadedVideoFile && !uploadedVideoUrl && !selectedFile) {
+      triggerToast("Please select a video file first!");
+      return;
+    }
+
+    if (uploadMode === 'custom' && customLyrics.trim() === '') {
+      triggerToast("Please enter or paste your lyrics first!");
+      return;
+    }
+
     setActiveScreen(2);
 
-    if (file) {
+    if (uploadedVideoFile) {
       // Fake progress bar while waiting for real API
       setProcessingProgress(5);
       const fakeProgress = setInterval(() => {
@@ -145,7 +159,7 @@ export default function App() {
 
       try {
         const formData = new FormData();
-        formData.append("video", file);
+        formData.append("video", uploadedVideoFile);
         formData.append("romanize", "true");
         if (uploadMode === 'custom' && customLyrics.trim() !== '') {
           formData.append("custom_lyrics", customLyrics.trim());
@@ -203,6 +217,20 @@ export default function App() {
         clearInterval(fakeProgress);
         triggerToast("Network Error connecting to backend.");
       }
+    } else {
+      // Mock processing for sample demo video
+      setProcessingProgress(10);
+      const fakeProgress = setInterval(() => {
+        setProcessingProgress(p => {
+          if (p >= 90) {
+            clearInterval(fakeProgress);
+            setProcessingProgress(100);
+            setTimeout(() => setActiveScreen(3), 600);
+            return 100;
+          }
+          return p + 20;
+        });
+      }, 500);
     }
   };
 
@@ -429,7 +457,7 @@ export default function App() {
                         />
                       )}
 
-                      {/* Drag and Drop Card */}
+                      {/* Drag and Drop / Selected File Card */}
                       <input 
                         type="file" 
                         id="real-file-input" 
@@ -439,30 +467,56 @@ export default function App() {
                           if (e.target.files && e.target.files[0]) {
                             const file = e.target.files[0];
                             const url = URL.createObjectURL(file);
-                            handleUploadClick(file.name, url, file);
+                            handleFileSelect(file.name, url, file);
                           }
                         }} 
                       />
-                      <button 
-                        onClick={() => {
-                          const inputEl = document.getElementById('real-file-input');
-                          if (inputEl) inputEl.click();
-                          else handleUploadClick('custom_video.mp4');
-                        }}
-                        className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-8 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
-                          <Upload size={20} />
+
+                      {selectedFile ? (
+                        <div className="w-full border border-violet-200 bg-violet-50/50 rounded-2xl p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0">
+                              <Film size={20} />
+                            </div>
+                            <div className="truncate">
+                              <span className="text-xs font-bold text-slate-800 block truncate">{selectedFile}</span>
+                              <span className="text-[10px] text-violet-600 font-medium flex items-center gap-1">
+                                <Check size={12} /> Video Selected
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const inputEl = document.getElementById('real-file-input');
+                              if (inputEl) inputEl.click();
+                            }}
+                            className="px-3 py-1.5 text-[11px] font-bold text-violet-600 hover:bg-violet-100 rounded-lg transition-colors shrink-0"
+                          >
+                            Change
+                          </button>
                         </div>
-                        <div className="text-center space-y-1">
-                          <span className="text-[12px] font-bold text-violet-600 block">Upload Video</span>
-                          <span className="text-[10px] text-slate-400 block">Drag and drop or click to browse</span>
-                        </div>
-                      </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            const inputEl = document.getElementById('real-file-input');
+                            if (inputEl) inputEl.click();
+                            else handleFileSelect('custom_video.mp4');
+                          }}
+                          className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-7 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
+                            <Upload size={20} />
+                          </div>
+                          <div className="text-center space-y-1">
+                            <span className="text-[12px] font-bold text-violet-600 block">Upload Video</span>
+                            <span className="text-[10px] text-slate-400 block">Drag and drop or click to browse</span>
+                          </div>
+                        </button>
+                      )}
 
                       {/* Source Choices */}
                       {uploadMode === 'auto' && (
-                        <div className="grid grid-cols-3 gap-2 mt-4">
+                        <div className="grid grid-cols-3 gap-2 mt-3">
                           {[
                             { name: "Gallery", icon: ImageIcon, file: "gallery_shot_03.mp4" },
                             { name: "Files", icon: FolderOpen, file: "mysong2.mp4" },
@@ -470,8 +524,8 @@ export default function App() {
                           ].map((src) => (
                             <button
                               key={src.name}
-                              onClick={() => handleUploadClick(src.file)}
-                              className="bg-white border border-slate-100 rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                              onClick={() => handleFileSelect(src.file)}
+                              className="bg-white border border-slate-100 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                             >
                               <src.icon size={16} className="text-slate-500" />
                               <span className="text-[10px] font-bold text-slate-600">{src.name}</span>
@@ -479,6 +533,20 @@ export default function App() {
                           ))}
                         </div>
                       )}
+
+                      {/* Process Button */}
+                      <div className="pt-2">
+                        <button
+                          onClick={handleStartProcess}
+                          className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+                        >
+                          <Sparkles size={18} />
+                          <span className="text-xs">
+                            {uploadMode === 'custom' ? 'Process Video with Custom Lyrics' : 'Process Video & Generate Lyrics'}
+                          </span>
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 )}
