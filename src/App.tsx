@@ -56,6 +56,8 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<'auto' | 'custom'>('auto');
+  const [customLyrics, setCustomLyrics] = useState('');
 
   const [jobId, setJobId] = useState<string | null>(null);
   const [segments, setSegments] = useState<any[]>([]);
@@ -145,6 +147,9 @@ export default function App() {
         const formData = new FormData();
         formData.append("video", file);
         formData.append("romanize", "true");
+        if (uploadMode === 'custom' && customLyrics.trim() !== '') {
+          formData.append("custom_lyrics", customLyrics.trim());
+        }
 
         // Send to real Python backend!
         const response = await fetch(`${apiBaseUrl}/generate`, {
@@ -159,6 +164,22 @@ export default function App() {
           const data = await response.json();
           setJobId(data.job_id);
           setSegments(data.segments);
+          
+          // Set video title to first 3 words of generated lyrics
+          if (data.segments && data.segments.length > 0) {
+            let firstWords: string[] = [];
+            for (const seg of data.segments) {
+              if (seg.words) {
+                firstWords.push(...seg.words.map((w:any) => w.word));
+              } else if (seg.text) {
+                firstWords.push(...seg.text.split(' '));
+              }
+              if (firstWords.length >= 3) break;
+            }
+            if (firstWords.length > 0) {
+              setVideoTitle(firstWords.slice(0, 3).join(' '));
+            }
+          }
 
           // Fetch video as blob with ngrok header (video tag can't send custom headers)
           const videoResp = await fetch(apiBaseUrl + data.video_url, {
@@ -188,7 +209,6 @@ export default function App() {
   const getFileSize = () => {
     // Rough estimate: Original ~same as input, HD adds ~40% for re-encoding
     const base = selectedQuality === 'HD' ? 58.4 : 42.8;
-    if (selectedFormat === 'MOV') return (base * 1.35).toFixed(1);
     return base.toFixed(1);
   };
 
@@ -384,6 +404,31 @@ export default function App() {
                         </p>
                       </div>
 
+                      {/* Tab Switcher */}
+                      <div className="flex bg-slate-50 p-1 rounded-xl shadow-inner mb-2">
+                        <button
+                          onClick={() => setUploadMode('auto')}
+                          className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${uploadMode === 'auto' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          Auto Generate Lyrics
+                        </button>
+                        <button
+                          onClick={() => setUploadMode('custom')}
+                          className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${uploadMode === 'custom' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          Provide Lyrics
+                        </button>
+                      </div>
+
+                      {uploadMode === 'custom' && (
+                        <textarea
+                          value={customLyrics}
+                          onChange={(e) => setCustomLyrics(e.target.value)}
+                          placeholder="Paste your lyrics here to align perfectly with the audio..."
+                          className="w-full h-24 p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-slate-700 placeholder-slate-400 mb-2"
+                        />
+                      )}
+
                       {/* Drag and Drop Card */}
                       <input 
                         type="file" 
@@ -404,7 +449,7 @@ export default function App() {
                           if (inputEl) inputEl.click();
                           else handleUploadClick('custom_video.mp4');
                         }}
-                        className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-12 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                        className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-8 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
                       >
                         <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
                           <Upload size={20} />
@@ -416,22 +461,24 @@ export default function App() {
                       </button>
 
                       {/* Source Choices */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { name: "Gallery", icon: ImageIcon, file: "gallery_shot_03.mp4" },
-                          { name: "Files", icon: FolderOpen, file: "mysong2.mp4" },
-                          { name: "Camera", icon: Camera, file: "camera_capture.mp4" }
-                        ].map((src) => (
-                          <button
-                            key={src.name}
-                            onClick={() => handleUploadClick(src.file)}
-                            className="bg-white border border-slate-100 rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors shadow-2xs"
-                          >
-                            <src.icon size={16} className="text-slate-500" />
-                            <span className="text-[10px] font-bold text-slate-600">{src.name}</span>
-                          </button>
-                        ))}
-                      </div>
+                      {uploadMode === 'auto' && (
+                        <div className="grid grid-cols-3 gap-2 mt-4">
+                          {[
+                            { name: "Gallery", icon: ImageIcon, file: "gallery_shot_03.mp4" },
+                            { name: "Files", icon: FolderOpen, file: "mysong2.mp4" },
+                            { name: "Camera", icon: Camera, file: "camera_capture.mp4" }
+                          ].map((src) => (
+                            <button
+                              key={src.name}
+                              onClick={() => handleUploadClick(src.file)}
+                              className="bg-white border border-slate-100 rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <src.icon size={16} className="text-slate-500" />
+                              <span className="text-[10px] font-bold text-slate-600">{src.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -769,30 +816,11 @@ export default function App() {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-12 gap-3 pt-1 items-center">
-                              <div className="col-span-7 space-y-1.5">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Format</span>
-                                <div className="flex gap-1.5">
-                                  {(['MP4', 'MOV'] as const).map((f) => (
-                                    <button
-                                      key={f}
-                                      onClick={() => setSelectedFormat(f)}
-                                      className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-colors ${
-                                        selectedFormat === f 
-                                        ? 'bg-violet-600 text-white' 
-                                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                                      }`}
-                                    >
-                                      {f}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              
+                            <div className="grid grid-cols-1 gap-3 pt-1">
                               {/* File size output */}
-                              <div className="col-span-5 bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
-                                <span className="text-[12px] font-black text-slate-800 block leading-tight">{getFileSize()} MB</span>
-                                <span className="text-[8px] text-slate-400 block font-semibold uppercase">Est. Size</span>
+                              <div className="bg-slate-50 rounded-xl p-2 text-center border border-slate-100 flex items-center justify-between px-4">
+                                <span className="text-[10px] text-slate-400 font-semibold uppercase">Estimated Final Size</span>
+                                <span className="text-[12px] font-black text-violet-600 leading-tight">{getFileSize()} MB</span>
                               </div>
                             </div>
                           </div>
