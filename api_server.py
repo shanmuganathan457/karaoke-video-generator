@@ -132,16 +132,18 @@ async def generate_karaoke(
         
         processor = VideoProcessor()
         processor.extract_audio(input_path, temp_audio)
-        vocals_audio, _ = VocalSeparator.separate(temp_audio)
 
         # ── FORCED ALIGNMENT path (custom lyrics provided) ──
+        # Skip Demucs — aeneas doesn't need clean vocals, works on full audio
         if custom_lyrics.strip():
-            print(f"[{job_id}] Custom lyrics detected — using aeneas forced alignment")
-            segments = align_with_aeneas(vocals_audio, custom_lyrics)
+            print(f"[{job_id}] Custom lyrics mode → skipping Demucs, using aeneas forced alignment")
+            segments = align_with_aeneas(temp_audio, custom_lyrics)
             detected_lang = language if language else "und"
         else:
             # ── AUTO TRANSCRIPTION path (Whisper) ──
-            print(f"[{job_id}] No custom lyrics — using Whisper transcription")
+            # Demucs needed here — clean vocals improves Whisper accuracy
+            print(f"[{job_id}] Auto mode → running Demucs + Whisper transcription")
+            vocals_audio, _ = VocalSeparator.separate(temp_audio)
             transcriber = AudioTranscriber()
             result = transcriber.transcribe(
                 vocals_audio,
