@@ -97,6 +97,11 @@ export default function App() {
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [changePassMode, setChangePassMode] = useState(false);
   const [newPass, setNewPass] = useState('');
+  
+  // ── Link Downloader ───────────────────────────────────────────
+  const [linkInput, setLinkInput] = useState('');
+  const [isDownloadingLink, setIsDownloadingLink] = useState(false);
+  const [downloadedLinkVideo, setDownloadedLinkVideo] = useState<string | null>(null);
 
   const apiBaseUrl = "https://defiance-trustable-washstand.ngrok-free.dev";
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -506,10 +511,55 @@ export default function App() {
           <h3 className="text-xs font-bold text-slate-800">Convert Link to Video</h3>
         </div>
         <div className="flex gap-2">
-          <input type="text" placeholder="Paste YouTube / Instagram link..." className="flex-grow text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-slate-400" />
-          <button onClick={() => triggerToast('Link processing started!')} className="bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-violet-700">Fetch</button>
+          <input 
+            type="text" 
+            value={linkInput}
+            onChange={(e) => setLinkInput(e.target.value)}
+            placeholder="Paste YouTube / Instagram link..." 
+            className="flex-grow text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-slate-400" 
+          />
+          <button 
+            onClick={() => {
+              if (!linkInput) return;
+              setIsDownloadingLink(true);
+              setTimeout(() => {
+                setIsDownloadingLink(false);
+                setDownloadedLinkVideo(waterfallImg); // Mocking download result
+                triggerToast('Video downloaded successfully!');
+              }, 2500);
+            }} 
+            disabled={isDownloadingLink || !linkInput}
+            className="bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center min-w-[40px]"
+          >
+            {isDownloadingLink ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
+          </button>
         </div>
-        <p className="text-[9px] text-slate-400 leading-snug">Download videos directly from social links (YouTube, Instagram) to use in karaoke.</p>
+        
+        {downloadedLinkVideo ? (
+          <div className="mt-3 relative rounded-xl overflow-hidden border border-slate-200 bg-black aspect-video flex items-center justify-center">
+             <img src={downloadedLinkVideo} alt="Downloaded preview" className="w-full h-full object-cover opacity-60" />
+             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+               <span className="text-[10px] text-white font-bold px-2 py-1 bg-black/40 rounded-full">Downloaded_Video.mp4</span>
+               <button 
+                 onClick={() => {
+                   setActiveTab('create');
+                   setActiveScreen(1);
+                   handleFileSelect("Downloaded_Video.mp4", downloadedLinkVideo);
+                 }}
+                 className="bg-white/95 text-violet-600 text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-white cursor-pointer hover:scale-105 transition-transform"
+               >
+                 Use in Karaoke
+               </button>
+             </div>
+             <button onClick={() => { setDownloadedLinkVideo(null); setLinkInput(''); }} className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full text-white flex items-center justify-center hover:bg-black/80 cursor-pointer text-xs">&times;</button>
+          </div>
+        ) : (
+          <p className="text-[9px] text-slate-400 leading-snug">Download videos directly from social links (YouTube, Instagram) to use in karaoke.</p>
+        )}
       </div>
 
       {/* Recent Projects */}
