@@ -215,3 +215,33 @@ async def export_video(req: ExportRequest):
         return {"video_url": f"/files/output_{req.job_id}.mp4"}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+class DownloadRequest(BaseModel):
+    url: str
+
+@app.post("/download_link")
+async def download_link(req: DownloadRequest):
+    """Download video from YouTube or Instagram using yt-dlp."""
+    try:
+        import yt_dlp
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "yt-dlp not installed. Run !pip install yt-dlp"})
+        
+    job_id = str(uuid.uuid4())[:8]
+    output_path = f"/tmp/downloaded_{job_id}.mp4"
+    
+    ydl_opts = {
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'outtmpl': output_path,
+        'quiet': True,
+        'no_warnings': True,
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"[{job_id}] Downloading link: {req.url}")
+            ydl.download([req.url])
+            
+        return {"video_url": f"/files/downloaded_{job_id}.mp4"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})

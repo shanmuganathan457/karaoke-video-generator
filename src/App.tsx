@@ -519,14 +519,35 @@ export default function App() {
             className="flex-grow text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-slate-400" 
           />
           <button 
-            onClick={() => {
+            onClick={async () => {
               if (!linkInput) return;
               setIsDownloadingLink(true);
-              setTimeout(() => {
-                setIsDownloadingLink(false);
-                setDownloadedLinkVideo(waterfallImg); // Mocking download result
-                triggerToast('Video downloaded successfully!');
-              }, 2500);
+              try {
+                const res = await fetch(`${apiBaseUrl}/download_link`, {
+                  method: 'POST',
+                  headers: { 
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': '69420'
+                  },
+                  body: JSON.stringify({ url: linkInput })
+                });
+                
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.error) {
+                     triggerToast(`Error: ${data.error}`);
+                     setIsDownloadingLink(false);
+                     return;
+                  }
+                  setDownloadedLinkVideo(apiBaseUrl + data.video_url);
+                  triggerToast('Video downloaded successfully!');
+                } else {
+                  triggerToast('Failed to download video.');
+                }
+              } catch (e) {
+                triggerToast('Network error connecting to backend.');
+              }
+              setIsDownloadingLink(false);
             }} 
             disabled={isDownloadingLink || !linkInput}
             className="bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center min-w-[40px]"
@@ -540,22 +561,23 @@ export default function App() {
         </div>
         
         {downloadedLinkVideo ? (
-          <div className="mt-3 relative rounded-xl overflow-hidden border border-slate-200 bg-black aspect-video flex items-center justify-center">
-             <img src={downloadedLinkVideo} alt="Downloaded preview" className="w-full h-full object-cover opacity-60" />
-             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-               <span className="text-[10px] text-white font-bold px-2 py-1 bg-black/40 rounded-full">Downloaded_Video.mp4</span>
+          <div className="mt-3 relative rounded-xl overflow-hidden border border-slate-200 bg-black aspect-video flex items-center justify-center group">
+             <video src={downloadedLinkVideo} controls className="w-full h-full object-cover opacity-60" />
+             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none group-hover:opacity-100 transition-opacity">
+               <span className="text-[10px] text-white font-bold px-2 py-1 bg-black/60 rounded-full">Downloaded Video</span>
                <button 
-                 onClick={() => {
+                 onClick={(e) => {
+                   e.preventDefault();
                    setActiveTab('create');
                    setActiveScreen(1);
                    handleFileSelect("Downloaded_Video.mp4", downloadedLinkVideo);
                  }}
-                 className="bg-white/95 text-violet-600 text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-white cursor-pointer hover:scale-105 transition-transform"
+                 className="bg-violet-600 text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-violet-700 cursor-pointer pointer-events-auto"
                >
                  Use in Karaoke
                </button>
              </div>
-             <button onClick={() => { setDownloadedLinkVideo(null); setLinkInput(''); }} className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full text-white flex items-center justify-center hover:bg-black/80 cursor-pointer text-xs">&times;</button>
+             <button onClick={() => { setDownloadedLinkVideo(null); setLinkInput(''); }} className="absolute top-2 right-2 w-6 h-6 bg-black/70 rounded-full text-white flex items-center justify-center hover:bg-black/90 cursor-pointer text-xs z-10">&times;</button>
           </div>
         ) : (
           <p className="text-[9px] text-slate-400 leading-snug">Download videos directly from social links (YouTube, Instagram) to use in karaoke.</p>
