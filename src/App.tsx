@@ -606,19 +606,6 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Custom Fullscreen Button (top-right corner) */}
-                      <button
-                        onClick={toggleFullscreen}
-                        className="absolute top-3 right-3 z-20 bg-black/50 hover:bg-black/80 text-white rounded-lg p-1.5 transition-all backdrop-blur-sm border border-white/10"
-                        title="Toggle Fullscreen"
-                      >
-                        {isFullscreen ? (
-                          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
-                        ) : (
-                          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-                        )}
-                      </button>
-
                       {/* Dynamic Real-Time Subtitle Overlay */}
                       {activeSegment && (
                         <div className={`subtitle-overlay absolute left-0 right-0 px-6 text-center z-10 pointer-events-none transition-all duration-75 ${
@@ -733,165 +720,173 @@ export default function App() {
                       </div>
 
                       {/* Mini Song card */}
-                      <div className="bg-white border border-slate-100 p-2.5 rounded-2xl flex items-center gap-3 shadow-2xs">
-                        {uploadedVideoUrl ? (
-                          <video src={uploadedVideoUrl} className="w-12 h-12 object-cover rounded-lg" />
-                        ) : (
-                          <img 
-                            src={waterfallImg} 
-                            alt="Thumbnail" 
-                            className="w-12 h-12 object-cover rounded-lg"
-                          />
-                        )}
-                        <div className="flex-grow text-left">
-                          <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">
-                            {selectedFile ? selectedFile.replace(/\.[^.]+$/, '') : videoTitle}
-                          </h4>
-                          <span className="text-[9px] text-slate-400 block font-mono">
-                            {videoDuration > 0 ? formatTime(videoDuration) : '--:--'}
-                          </span>
+                      {!isExporting && (
+                        <div className="bg-white border border-slate-100 p-2.5 rounded-2xl flex items-center gap-3 shadow-2xs">
+                          {uploadedVideoUrl ? (
+                            <video src={`${uploadedVideoUrl}#t=0.1`} preload="metadata" className="w-12 h-12 object-cover rounded-lg bg-black" />
+                          ) : (
+                            <img 
+                              src={waterfallImg} 
+                              alt="Thumbnail" 
+                              className="w-12 h-12 object-cover rounded-lg"
+                            />
+                          )}
+                          <div className="flex-grow text-left">
+                            <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">
+                              {selectedFile ? selectedFile.replace(/\.[^.]+$/, '') : videoTitle}
+                            </h4>
+                            <span className="text-[9px] text-slate-400 block font-mono">
+                              {videoDuration > 0 ? formatTime(videoDuration) : '--:--'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-0.5 px-2">
+                            <div className="w-1 h-3.5 bg-violet-500 rounded-full" />
+                            <div className="w-1 h-5 bg-violet-500 rounded-full" />
+                            <div className="w-1 h-2 bg-violet-500 rounded-full" />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-0.5 px-2">
-                          <div className="w-1 h-3.5 bg-violet-500 rounded-full" />
-                          <div className="w-1 h-5 bg-violet-500 rounded-full" />
-                          <div className="w-1 h-2 bg-violet-500 rounded-full" />
-                        </div>
-                      </div>
+                      )}
 
                       {/* Video configuration options */}
-                      <div className="bg-white border border-slate-100 p-3.5 rounded-2xl space-y-3 shadow-2xs text-left">
-                        <div className="space-y-1.5">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Video Quality</span>
-                          <div className="grid grid-cols-2 gap-2">
-                            {(['Original', 'HD'] as const).map((q) => (
-                              <button
-                                key={q}
-                                onClick={() => setSelectedQuality(q)}
-                                className={`py-1.5 text-[11px] font-bold rounded-lg transition-colors ${
-                                  selectedQuality === q 
-                                  ? 'bg-violet-600 text-white' 
-                                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                                }`}
-                              >
-                                {q === 'HD' ? '🎬 HD (1080p)' : '📁 Original'}
-                              </button>
-                            ))}
-                          </div>
-                          {selectedQuality === 'HD' && (
-                            <p className="text-[9px] text-violet-500 font-semibold">⚡ Re-encodes video to 1080p on the server</p>
-                          )}
-                        </div>
+                      {!isExporting && (
+                        <>
+                          <div className="bg-white border border-slate-100 p-3.5 rounded-2xl space-y-3 shadow-2xs text-left">
+                            <div className="space-y-1.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Video Quality</span>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['Original', 'HD'] as const).map((q) => (
+                                  <button
+                                    key={q}
+                                    onClick={() => setSelectedQuality(q)}
+                                    className={`py-1.5 text-[11px] font-bold rounded-lg transition-colors ${
+                                      selectedQuality === q 
+                                      ? 'bg-violet-600 text-white' 
+                                      : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {q === 'HD' ? '🎬 HD (1080p)' : '📁 Original'}
+                                  </button>
+                                ))}
+                              </div>
+                              {selectedQuality === 'HD' && (
+                                <p className="text-[9px] text-violet-500 font-semibold">⚡ Re-encodes video to 1080p on the server</p>
+                              )}
+                            </div>
 
-                        <div className="grid grid-cols-12 gap-3 pt-1 items-center">
-                          <div className="col-span-7 space-y-1.5">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Format</span>
-                            <div className="flex gap-1.5">
-                              {(['MP4', 'MOV'] as const).map((f) => (
-                                <button
-                                  key={f}
-                                  onClick={() => setSelectedFormat(f)}
-                                  className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-colors ${
-                                    selectedFormat === f 
-                                    ? 'bg-violet-600 text-white' 
-                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                                  }`}
-                                >
-                                  {f}
-                                </button>
-                              ))}
+                            <div className="grid grid-cols-12 gap-3 pt-1 items-center">
+                              <div className="col-span-7 space-y-1.5">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Format</span>
+                                <div className="flex gap-1.5">
+                                  {(['MP4', 'MOV'] as const).map((f) => (
+                                    <button
+                                      key={f}
+                                      onClick={() => setSelectedFormat(f)}
+                                      className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-colors ${
+                                        selectedFormat === f 
+                                        ? 'bg-violet-600 text-white' 
+                                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                      }`}
+                                    >
+                                      {f}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* File size output */}
+                              <div className="col-span-5 bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
+                                <span className="text-[12px] font-black text-slate-800 block leading-tight">{getFileSize()} MB</span>
+                                <span className="text-[8px] text-slate-400 block font-semibold uppercase">Est. Size</span>
+                              </div>
                             </div>
                           </div>
-                          
-                          {/* File size output */}
-                          <div className="col-span-5 bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
-                            <span className="text-[12px] font-black text-slate-800 block leading-tight">{getFileSize()} MB</span>
-                            <span className="text-[8px] text-slate-400 block font-semibold uppercase">Est. Size</span>
+
+                          {/* Share Directly To */}
+                          <div className="space-y-1.5 text-left">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Share Directly To</span>
+                            <div className="grid grid-cols-3 gap-3">
+                              {/* WhatsApp */}
+                              <button
+                                onClick={() => {
+                                  const text = encodeURIComponent(`Check out my karaoke video! 🎤`);
+                                  window.open(`https://wa.me/?text=${text}`, '_blank');
+                                }}
+                                className="flex flex-col items-center justify-center gap-1 py-3 bg-[#25D366] rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
+                              >
+                                <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                <span className="text-[9px] font-bold text-white">WhatsApp</span>
+                              </button>
+
+                              {/* Instagram */}
+                              <button
+                                onClick={() => {
+                                  if (navigator.share) {
+                                    navigator.share({ title: 'My Karaoke Video 🎤', text: 'Check out this karaoke I made with AI!' })
+                                      .catch(() => {});
+                                  } else {
+                                    triggerToast('Open Instagram and share from your gallery!');
+                                  }
+                                }}
+                                className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
+                                style={{background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)'}}
+                              >
+                                <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                                <span className="text-[9px] font-bold text-white">Instagram</span>
+                              </button>
+
+                              {/* Telegram */}
+                              <button
+                                onClick={() => {
+                                  const text = encodeURIComponent('Check out my karaoke video! 🎤');
+                                  window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${text}`, '_blank');
+                                }}
+                                className="flex flex-col items-center justify-center gap-1 py-3 bg-[#229ED9] rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
+                              >
+                                <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                                <span className="text-[9px] font-bold text-white">Telegram</span>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Share Directly To */}
-                      <div className="space-y-1.5 text-left">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Share Directly To</span>
-                        <div className="grid grid-cols-3 gap-3">
-                          {/* WhatsApp */}
-                          <button
-                            onClick={() => {
-                              const text = encodeURIComponent(`Check out my karaoke video! 🎤`);
-                              window.open(`https://wa.me/?text=${text}`, '_blank');
-                            }}
-                            className="flex flex-col items-center justify-center gap-1 py-3 bg-[#25D366] rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
-                          >
-                            <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                            <span className="text-[9px] font-bold text-white">WhatsApp</span>
-                          </button>
-
-                          {/* Instagram */}
-                          <button
-                            onClick={() => {
-                              if (navigator.share) {
-                                navigator.share({ title: 'My Karaoke Video 🎤', text: 'Check out this karaoke I made with AI!' })
-                                  .catch(() => {});
-                              } else {
-                                triggerToast('Open Instagram and share from your gallery!');
-                              }
-                            }}
-                            className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
-                            style={{background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)'}}
-                          >
-                            <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                            <span className="text-[9px] font-bold text-white">Instagram</span>
-                          </button>
-
-                          {/* Telegram */}
-                          <button
-                            onClick={() => {
-                              const text = encodeURIComponent('Check out my karaoke video! 🎤');
-                              window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${text}`, '_blank');
-                            }}
-                            className="flex flex-col items-center justify-center gap-1 py-3 bg-[#229ED9] rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
-                          >
-                            <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                            <span className="text-[9px] font-bold text-white">Telegram</span>
-                          </button>
-                        </div>
-                      </div>
+                        </>
+                      )}
                     </div>
 
-                    <div className="mt-auto space-y-2 pt-4">
-                      {/* Save to Device */}
-                      <button 
-                        onClick={async () => {
-                          const url = exportedBlobUrl || uploadedVideoUrl;
-                          if (!url) { triggerToast('No video ready to download!'); return; }
-                          triggerToast('Downloading...');
-                          // If it's already a blob URL, download directly
-                          if (url.startsWith('blob:')) {
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi,'_')}_karaoke.mp4`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                          } else {
-                            // Fetch from ngrok with header
-                            const resp = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '69420' } });
-                            const blob = await resp.blob();
-                            const blobUrl = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = blobUrl;
-                            a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi,'_')}_karaoke.mp4`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(blobUrl);
-                          }
-                        }}
-                        className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-200 transition-colors cursor-pointer"
-                      >
-                        <Download size={16} /> Save to Device
-                      </button>
-                      <span className="text-[9px] text-slate-400 block text-center">
+                    {!isExporting && (
+                      <div className="mt-auto space-y-2 pt-4">
+                        {/* Save to Device */}
+                        <button 
+                          onClick={async () => {
+                            const url = exportedBlobUrl || uploadedVideoUrl;
+                            if (!url) { triggerToast('No video ready to download!'); return; }
+                            triggerToast('Downloading...');
+                            // If it's already a blob URL, download directly
+                            if (url.startsWith('blob:')) {
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi,'_')}_karaoke.mp4`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                            } else {
+                              // Fetch from ngrok with header
+                              const resp = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '69420' } });
+                              const blob = await resp.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = blobUrl;
+                              a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi,'_')}_karaoke.mp4`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(blobUrl);
+                            }
+                          }}
+                          className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-200 transition-colors cursor-pointer"
+                        >
+                          <Download size={16} /> Save to Device
+                        </button>
+                      </div>
+                    )}                   <span className="text-[9px] text-slate-400 block text-center">
                         Export will take approximately 15 seconds.
                       </span>
                     </div>
