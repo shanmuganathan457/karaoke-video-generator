@@ -62,6 +62,23 @@ export default function App() {
   const apiBaseUrl = "https://defiance-trustable-washstand.ngrok-free.dev";
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const videoContainerRef = React.useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Track fullscreen changes
+  React.useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      videoContainerRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   // Sync play/pause with state
   useEffect(() => {
@@ -523,7 +540,17 @@ export default function App() {
                     className="flex-grow flex flex-col justify-between py-2 space-y-4"
                   >
                     {/* Video Player Display Container */}
-                    <div className="relative w-full min-h-[40vh] max-h-[60vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center">
+                    <div 
+                      ref={videoContainerRef}
+                      className="relative w-full min-h-[40vh] max-h-[60vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center"
+                      style={{ isolation: 'isolate' }}
+                    >
+                      {/* Fullscreen CSS: subtitle overlay stays visible in fullscreen */}
+                      <style>{`
+                        :fullscreen .subtitle-overlay { display: flex !important; }
+                        :-webkit-full-screen .subtitle-overlay { display: flex !important; }
+                        :fullscreen video { width: 100%; height: 100%; object-fit: contain; }
+                      `}</style>
                       {uploadedVideoUrl ? (
                         <video 
                           ref={videoRef}
@@ -532,7 +559,8 @@ export default function App() {
                           autoPlay 
                           loop 
                           playsInline
-                          controls={true}
+                          controls
+                          controlsList="nofullscreen"
                           onTimeUpdate={() => setPlaybackTime(videoRef.current?.currentTime || 0)}
                         />
                       ) : (
@@ -564,9 +592,22 @@ export default function App() {
                         )}
                       </div>
 
+                      {/* Custom Fullscreen Button (top-right corner) */}
+                      <button
+                        onClick={toggleFullscreen}
+                        className="absolute top-3 right-3 z-20 bg-black/50 hover:bg-black/80 text-white rounded-lg p-1.5 transition-all backdrop-blur-sm border border-white/10"
+                        title="Toggle Fullscreen"
+                      >
+                        {isFullscreen ? (
+                          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+                        ) : (
+                          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                        )}
+                      </button>
+
                       {/* Dynamic Real-Time Subtitle Overlay */}
                       {activeSegment && (
-                        <div className={`absolute left-0 right-0 px-6 text-center z-10 pointer-events-none transition-all duration-75 ${
+                        <div className={`subtitle-overlay absolute left-0 right-0 px-6 text-center z-10 pointer-events-none transition-all duration-75 ${
                           subtitleStyle.alignment === 'top' ? 'top-10' : 
                           subtitleStyle.alignment === 'middle' ? 'top-1/2 -translate-y-1/2' : 'bottom-12'
                         }`}>
