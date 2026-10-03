@@ -5,7 +5,7 @@ import {
   Sparkles, Download, Share2, Tv, CheckCircle, Clock, Film, FileText,
   Smartphone, Cpu, ArrowRight, Monitor, Home, BarChart2, User, Plus,
   LayoutGrid, List, LogOut, Mail, Lock, Eye, EyeOff, Mic2, Music,
-  TrendingUp, Zap, Settings, Edit3, Key
+  TrendingUp, Zap, Settings, Edit3, Key, MoreVertical, Heart, Link as LinkIcon, PlusCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 // @ts-ignore
@@ -60,13 +60,12 @@ export default function App() {
   const [userData, setUserData] = useState<UserData>({ name: 'Alex', email: 'alex@example.com' });
 
   // ── App shell ─────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'home' | 'projects' | 'analytics' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'projects' | 'create' | 'favorites' | 'profile'>('home');
   const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
 
   // ── Projects ──────────────────────────────────────────────────
   const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS);
   const [projectsView, setProjectsView] = useState<'list' | 'cards'>('list');
-  const [projectsTab, setProjectsTab] = useState<'all' | 'create'>('all');
 
   // ── Karaoke creation flow ─────────────────────────────────────
   const [activeScreen, setActiveScreen] = useState<1 | 2 | 3 | 4>(1);
@@ -420,40 +419,51 @@ export default function App() {
 
       {/* Inner content — conditional on tab */}
       <div className="flex-grow overflow-y-auto relative">
-        {/* Karaoke Creation Flow (inside Projects > Create) */}
-        {activeTab === 'projects' && projectsTab === 'create' ? (
+        {/* Karaoke Creation Flow */}
+        {activeTab === 'create' ? (
           renderKaraokeFlow()
         ) : activeTab === 'home' ? renderHome()
           : activeTab === 'projects' ? renderProjects()
-          : activeTab === 'analytics' ? renderAnalytics()
+          : activeTab === 'favorites' ? renderFavorites()
           : renderProfile()}
       </div>
 
       {/* Bottom Tab Bar */}
-      {!(activeTab === 'projects' && projectsTab === 'create' && activeScreen > 1) && (
-        <footer className="h-16 bg-white border-t border-slate-100 px-2 flex justify-around items-center shrink-0 select-none">
+      {!(activeTab === 'create' && activeScreen > 1) && (
+        <footer className="h-16 bg-white border-t border-slate-100 px-2 flex justify-around items-center shrink-0 select-none pb-1">
           {([
             { key: 'home', icon: Home, label: 'Home' },
             { key: 'projects', icon: Film, label: 'Projects' },
-            { key: 'analytics', icon: BarChart2, label: 'Analytics' },
+            { key: 'create', icon: PlusCircle, label: 'Create', isCenter: true },
+            { key: 'favorites', icon: Heart, label: 'Favorites' },
             { key: 'profile', icon: User, label: 'Profile' },
           ] as const).map(tab => (
             <button
               key={tab.key}
               onClick={() => {
                 setActiveTab(tab.key);
-                if (tab.key === 'projects') setProjectsTab('all');
+                if (tab.key === 'create') {
+                  setActiveScreen(1); setSelectedFile(null); setUploadedVideoFile(null); setUploadedVideoUrl(null); setCustomLyrics('');
+                }
               }}
               className="flex flex-col items-center justify-center gap-0.5 w-14 cursor-pointer"
             >
-              <tab.icon
-                size={18}
-                className={activeTab === tab.key ? 'text-violet-600' : 'text-slate-400'}
-                strokeWidth={activeTab === tab.key ? 2.5 : 2}
-              />
-              <span className={`text-[9px] font-bold ${activeTab === tab.key ? 'text-violet-600' : 'text-slate-400'}`}>
-                {tab.label}
-              </span>
+              {tab.isCenter ? (
+                <div className="w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-md shadow-violet-300">
+                  <Plus size={22} />
+                </div>
+              ) : (
+                <>
+                  <tab.icon
+                    size={18}
+                    className={activeTab === tab.key ? 'text-violet-600' : 'text-slate-400'}
+                    strokeWidth={activeTab === tab.key ? 2.5 : 2}
+                  />
+                  <span className={`text-[9px] font-bold ${activeTab === tab.key ? 'text-violet-600' : 'text-slate-400'}`}>
+                    {tab.label}
+                  </span>
+                </>
+              )}
             </button>
           ))}
         </footer>
@@ -477,7 +487,7 @@ export default function App() {
 
       {/* Quick Create Banner */}
       <div
-        onClick={() => { setActiveTab('projects'); setProjectsTab('create'); setActiveScreen(1); }}
+        onClick={() => { setActiveTab('create'); setActiveScreen(1); }}
         className="w-full rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 p-4 flex items-center justify-between cursor-pointer shadow-lg shadow-violet-300/40"
       >
         <div>
@@ -489,19 +499,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: 'Videos', value: totalProjects, icon: Film, color: 'text-violet-600', bg: 'bg-violet-50' },
-          { label: 'Avg Time', value: `${avgTime}s`, icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'This Week', value: projects.filter(p => p.date.includes('Oct')).length, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className={`${bg} rounded-xl p-3 text-center`}>
-            <Icon size={16} className={`${color} mx-auto mb-1`} />
-            <p className="text-sm font-black text-slate-800">{value}</p>
-            <p className="text-[9px] text-slate-500 font-semibold">{label}</p>
-          </div>
-        ))}
+      {/* Video Downloader */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <LinkIcon size={16} className="text-violet-600" />
+          <h3 className="text-xs font-bold text-slate-800">Convert Link to Video</h3>
+        </div>
+        <div className="flex gap-2">
+          <input type="text" placeholder="Paste YouTube / Instagram link..." className="flex-grow text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-slate-400" />
+          <button onClick={() => triggerToast('Link processing started!')} className="bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm cursor-pointer hover:bg-violet-700">Fetch</button>
+        </div>
+        <p className="text-[9px] text-slate-400 leading-snug">Download videos directly from social links (YouTube, Instagram) to use in karaoke.</p>
       </div>
 
       {/* Recent Projects */}
@@ -546,25 +554,12 @@ export default function App() {
               {projectsView === 'list' ? <LayoutGrid size={15} /> : <List size={15} />}
             </button>
             <button
-              onClick={() => { setProjectsTab('create'); setActiveScreen(1); setSelectedFile(null); setUploadedVideoFile(null); setUploadedVideoUrl(null); setCustomLyrics(''); }}
-              className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+              onClick={() => { setActiveTab('create'); setActiveScreen(1); setSelectedFile(null); setUploadedVideoFile(null); setUploadedVideoUrl(null); setCustomLyrics(''); }}
+              className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-[10px] font-bold cursor-pointer hover:bg-violet-700 shadow-sm"
             >
               <Plus size={12} /> New
             </button>
           </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex bg-slate-100 p-0.5 rounded-xl">
-          {(['all', 'create'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => { setProjectsTab(t); if (t === 'create') { setActiveScreen(1); setSelectedFile(null); setUploadedVideoFile(null); setUploadedVideoUrl(null); setCustomLyrics(''); } }}
-              className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg capitalize transition-colors ${projectsTab === t ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400'}`}
-            >
-              {t === 'all' ? `All (${projects.length})` : '+ Create New'}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -575,7 +570,7 @@ export default function App() {
             <Film size={36} className="opacity-30" />
             <p className="text-xs text-center">No projects yet.<br />Create your first karaoke!</p>
             <button
-              onClick={() => { setProjectsTab('create'); setActiveScreen(1); }}
+              onClick={() => { setActiveTab('create'); setActiveScreen(1); }}
               className="mt-2 px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl cursor-pointer"
             >
               + Create Now
@@ -592,12 +587,14 @@ export default function App() {
                   <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
                   <p className="text-[10px] text-slate-400">{p.date} · {p.duration} · {formatDuration(p.processingTime)}</p>
                 </div>
-                <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                <button onClick={() => triggerToast('Options opened')} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <MoreVertical size={16} />
+                </button>
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 pt-2">
+          <div className="grid grid-cols-1 gap-3 pt-2">
             {projects.map(p => (
               <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm">
                 <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
@@ -618,75 +615,35 @@ export default function App() {
     </motion.div>
   );
 
-  // ── ANALYTICS TAB ────────────────────────────────────────────
-  const renderAnalytics = () => (
+  // ── FAVORITES TAB ────────────────────────────────────────────
+  const renderFavorites = () => (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
-      <h2 className="text-sm font-black text-slate-800">Analytics</h2>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {[
-          { label: 'Total Videos', value: totalProjects, icon: Film, color: 'bg-violet-600' },
-          { label: 'Avg Process Time', value: `${avgTime}s`, icon: Clock, color: 'bg-indigo-600' },
-          { label: 'Fastest Job', value: `${fastestTime}s`, icon: Zap, color: 'bg-amber-500' },
-          { label: 'Custom Lyrics', value: customCount, icon: FileText, color: 'bg-emerald-600' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-            <div className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center mb-2`}>
-              <Icon size={14} className="text-white" />
-            </div>
-            <p className="text-sm font-black text-slate-800">{value}</p>
-            <p className="text-[10px] text-slate-400">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Mode breakdown */}
-      <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Mode Breakdown</p>
-        <div className="flex gap-2 mb-2">
-          <div className="flex-grow bg-violet-500 rounded-full h-2" style={{ flex: autoCount }} />
-          <div className="flex-grow bg-indigo-400 rounded-full h-2" style={{ flex: customCount || 0.01 }} />
+      <h2 className="text-sm font-black text-slate-800">Favorite Videos</h2>
+      
+      {projects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
+          <Heart size={36} className="opacity-30" />
+          <p className="text-xs text-center">No favorites yet.<br />Like a project to see it here!</p>
         </div>
-        <div className="flex justify-between text-[10px] font-bold">
-          <span className="text-violet-600">⚡ Auto: {autoCount}</span>
-          <span className="text-indigo-600">📝 Custom: {customCount}</span>
-        </div>
-      </div>
-
-      {/* Per-project processing times */}
-      <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Processing Times</p>
-        {projects.length === 0 ? (
-          <p className="text-xs text-slate-300 text-center py-3">No data yet</p>
-        ) : (
-          <div className="space-y-2">
-            {projects.map(p => (
-              <div key={p.id} className="flex items-center gap-2">
-                <div className="w-20 shrink-0">
-                  <p className="text-[10px] font-bold text-slate-700 truncate">{p.title}</p>
-                  <p className="text-[9px] text-slate-400">{p.date}</p>
-                </div>
-                <div className="flex-grow bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="h-full bg-violet-500 rounded-full"
-                    style={{ width: `${Math.min((p.processingTime / Math.max(...projects.map(x => x.processingTime))) * 100, 100)}%` }}
-                  />
-                </div>
-                <span className="text-[10px] font-bold text-violet-600 shrink-0">{formatDuration(p.processingTime)}</span>
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 pt-2">
+          {projects.map(p => (
+            <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
+              <button onClick={() => triggerToast('Removed from favorites')} className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow-sm text-red-500 hover:text-slate-400 z-10 cursor-pointer">
+                <Heart size={14} className="fill-red-500" />
+              </button>
+              <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                <Music size={22} className="text-violet-500" />
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {lastProcessingTime !== null && (
-        <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 flex items-center gap-3">
-          <Zap size={18} className="text-violet-600 shrink-0" />
-          <div>
-            <p className="text-xs font-bold text-violet-800">Last job took {formatDuration(lastProcessingTime)}</p>
-            <p className="text-[10px] text-violet-500">Backend performance</p>
-          </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
+                <p className="text-[9px] text-slate-400">{p.date}</p>
+              </div>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </motion.div>
