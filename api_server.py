@@ -1,4 +1,4 @@
-import sys, os, uuid
+import sys, os, uuid, json, tempfile, subprocess
 sys.path.insert(0, os.getcwd())
 
 # Monkey Patch: fix av library bug on Python 3.13
@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from karaoke_generator.transcriber import AudioTranscriber
 from karaoke_generator.subtitle_generator import SubtitleGenerator
@@ -34,12 +34,93 @@ app.mount("/files", StaticFiles(directory="/tmp"), name="files")
 
 @app.get("/")
 def root():
-    return {"status": "KaraokeAI Backend is running!", "version": "2.0.0"}
+    return {"status": "KaraokeAI Backend is running!", "version": "2.1.0"}
+
+
+def align_with_aeneas(audio_path: str, lyrics_text: str) -> list:
+    """
+    Use aeneas to force-align custom lyrics to audio.
+    Returns a list of segments in the same format as Whisper output.
+    """
+    job_id = str(uuid.uuid4())[:8]
+    
+    # Write lyrics to a plain text file (one line per segment)
+    lyrics_lines = [l.strip() for l in lyrics_text.strip().splitlines() if l.strip()]
+    lyrics_file = f"/tmp/lyrics_{job_id}.txt"
+    output_json = f"/tmp/aligned_{job_id}.json"
+    
+    with open(lyrics_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(lyrics_lines))
+    
+    # Build the aeneas task config string
+    # l=eng for English/romanized, os=json for output
+    # For Tamil/non-Latin, use l=ita or leave language detection (l=auto is not always supported)
+    task_config = "task_language=eng|os_task_file_format=json|is_text_type=plain"
+    
+    cmd = [
+        "python", "-m", "aeneas.tools.execute_task",
+        audio_path,
+        lyrics_file,
+        task_config,
+        output_json
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    
+    if result.returncode != 0:
+        raise RuntimeError(f"aeneas failed: {result.stderr}")
+    
+    with open(output_json, "r", encoding="utf-8") as f:
+        aeneas_data = json.load(f)
+    
+    # Convert aeneas output to Whisper-style segments
+    segments = []
+    fragments = aeneas_data.get("fragments", [])
+    
+    for i, frag in enumerate(fragments):
+        begin = float(frag.get("begin", 0))
+        end = float(frag.get("end", 0))
+        text = " ".join(frag.get("lines", []))
+        
+        if not text.strip():
+            continue
+        
+        # Build word-level timing by splitting line evenly across duration
+        words_list = text.split()
+        word_count = len(words_list)
+        duration = end - begin
+        word_dur = duration / max(word_count, 1)
+        
+        words = []
+        for j, w in enumerate(words_list):
+            ws = begin + j * word_dur
+            we = ws + word_dur
+            words.append({"word": w, "start": round(ws, 3), "end": round(we, 3), "probability": 1.0})
+        
+        segments.append({
+            "id": i,
+            "start": begin,
+            "end": end,
+            "text": text,
+            "words": words
+        })
+    
+    # Clean up temp files
+    try:
+        os.remove(lyrics_file)
+        os.remove(output_json)
+    except:
+        pass
+    
+    return segments
+
 
 @app.post("/generate")
 async def generate_karaoke(
     video: UploadFile = File(...),
-    language: str = Form(default="")
+    language: str = Form(default=""),
+    romanize: str = Form(default="true"),
+    custom_lyrics: str = Form(default="")
 ):
     job_id = str(uuid.uuid4())[:8]
     input_path = f"/tmp/input_{job_id}.mp4"
@@ -48,23 +129,38 @@ async def generate_karaoke(
     try:
         with open(input_path, "wb") as f:
             f.write(await video.read())
+        
         processor = VideoProcessor()
-        transcriber = AudioTranscriber()
         processor.extract_audio(input_path, temp_audio)
         vocals_audio, _ = VocalSeparator.separate(temp_audio)
-        result = transcriber.transcribe(
-            vocals_audio,
-            language=language if language else None,
-            vad_filter=False
-        )
+
+        # ── FORCED ALIGNMENT path (custom lyrics provided) ──
+        if custom_lyrics.strip():
+            print(f"[{job_id}] Custom lyrics detected — using aeneas forced alignment")
+            segments = align_with_aeneas(vocals_audio, custom_lyrics)
+            detected_lang = language if language else "und"
+        else:
+            # ── AUTO TRANSCRIPTION path (Whisper) ──
+            print(f"[{job_id}] No custom lyrics — using Whisper transcription")
+            transcriber = AudioTranscriber()
+            result = transcriber.transcribe(
+                vocals_audio,
+                language=language if language else None,
+                vad_filter=False
+            )
+            segments = result["segments"]
+            detected_lang = result["language"]
+
         return JSONResponse({
             "job_id": job_id,
             "video_url": f"/files/input_{job_id}.mp4",
-            "segments": result["segments"],
-            "language": result["language"]
+            "segments": segments,
+            "language": detected_lang,
+            "mode": "forced_alignment" if custom_lyrics.strip() else "whisper"
         })
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        import traceback
+        return JSONResponse(status_code=500, content={"error": str(e), "trace": traceback.format_exc()})
 
 
 class ExportRequest(BaseModel):
