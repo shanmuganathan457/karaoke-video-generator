@@ -140,7 +140,14 @@ export default function App() {
           const data = await response.json();
           setJobId(data.job_id);
           setSegments(data.segments);
-          setUploadedVideoUrl(apiBaseUrl + data.video_url); // Stream unburned video from Colab
+
+          // Fetch video as blob with ngrok header (video tag can't send custom headers)
+          const videoResp = await fetch(apiBaseUrl + data.video_url, {
+            headers: { "ngrok-skip-browser-warning": "69420" }
+          });
+          const videoBlob = await videoResp.blob();
+          const localVideoUrl = URL.createObjectURL(videoBlob);
+          setUploadedVideoUrl(localVideoUrl);
           
           clearInterval(fakeProgress);
           setProcessingProgress(100);
