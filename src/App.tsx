@@ -1,126 +1,121 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Upload, 
-  Image as ImageIcon, 
-  FolderOpen, 
-  Camera, 
-  Play, 
-  Pause,
-  ChevronLeft, 
-  HelpCircle, 
-  Check, 
-  ChevronRight, 
-  Volume2, 
-  RotateCcw,
-  Sparkles,
-  Download,
-  Share2,
-  Tv,
-  CheckCircle,
-  Clock,
-  Film,
-  FileText,
-  Smartphone,
-  Cpu,
-  ArrowRight,
-  Monitor
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Upload, Image as ImageIcon, FolderOpen, Camera, Play, Pause,
+  ChevronLeft, HelpCircle, Check, ChevronRight, Volume2, RotateCcw,
+  Sparkles, Download, Share2, Tv, CheckCircle, Clock, Film, FileText,
+  Smartphone, Cpu, ArrowRight, Monitor, Home, BarChart2, User, Plus,
+  LayoutGrid, List, LogOut, Mail, Lock, Eye, EyeOff, Mic2, Music,
+  TrendingUp, Zap, Settings, Edit3, Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 // @ts-ignore
 import waterfallImg from './waterfall.png';
-// @ts-ignore
-const outputVideo = '';
 
+// ─── Types ─────────────────────────────────────────────────────
+interface Project {
+  id: string;
+  title: string;
+  date: string;
+  duration: string;
+  mode: 'auto' | 'custom';
+  processingTime: number; // seconds
+  status: 'done';
+  thumbnail?: string;
+}
 
-// Subtitle segments to show lyrics overlaying waterfall video
-const sampleSubtitles = [
-  "Standing on the edge of the world...",
-  "Watching the water crash down below...",
-  "We are the dreamers of the night...",
-  "Midnight Serenade, singing under starlight..."
+interface UserData {
+  name: string;
+  email: string;
+}
+
+// ─── Helpers ────────────────────────────────────────────────────
+const formatTime = (secs: number) => {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+const formatDuration = (secs: number) => {
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+};
+
+const now = () => new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+// ─── Sample seed projects ────────────────────────────────────────
+const SEED_PROJECTS: Project[] = [
+  { id: 'p1', title: 'Midnight Serenade', date: '01 Oct 2026', duration: '3:42', mode: 'auto', processingTime: 87, status: 'done' },
+  { id: 'p2', title: 'Summer Rain', date: '29 Sep 2026', duration: '2:58', mode: 'custom', processingTime: 54, status: 'done' },
 ];
 
 export default function App() {
+  // ── Auth ──────────────────────────────────────────────────────
+  const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'app'>('login');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPass, setSignupPass] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [userData, setUserData] = useState<UserData>({ name: 'Alex', email: 'alex@example.com' });
+
+  // ── App shell ─────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'home' | 'projects' | 'analytics' | 'profile'>('home');
+  const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
+
+  // ── Projects ──────────────────────────────────────────────────
+  const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS);
+  const [projectsView, setProjectsView] = useState<'list' | 'cards'>('list');
+  const [projectsTab, setProjectsTab] = useState<'all' | 'create'>('all');
+
+  // ── Karaoke creation flow ─────────────────────────────────────
   const [activeScreen, setActiveScreen] = useState<1 | 2 | 3 | 4>(1);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const [lastProcessingTime, setLastProcessingTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackTime, setPlaybackTime] = useState(102); // 102 seconds = 1:42
+  const [playbackTime, setPlaybackTime] = useState(0);
   const [selectedQuality, setSelectedQuality] = useState<'Original' | 'HD'>('Original');
-  const [selectedFormat, setSelectedFormat] = useState<'MP4' | 'MOV'>('MP4');
   const [videoDuration, setVideoDuration] = useState(0);
   const [exportedBlobUrl, setExportedBlobUrl] = useState<string | null>(null);
-  const [videoTitle, setVideoTitle] = useState('Midnight Serenade');
+  const [videoTitle, setVideoTitle] = useState('My Karaoke');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<'auto' | 'custom'>('auto');
   const [customLyrics, setCustomLyrics] = useState('');
-
+  const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [segments, setSegments] = useState<any[]>([]);
   const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 24, alignment: 'bottom' });
   const [isExporting, setIsExporting] = useState(false);
-  const apiBaseUrl = "https://defiance-trustable-washstand.ngrok-free.dev";
 
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const videoContainerRef = React.useRef<HTMLDivElement>(null);
+  // ── Profile edit ──────────────────────────────────────────────
+  const [profileName, setProfileName] = useState(userData.name);
+  const [profileEmail, setProfileEmail] = useState(userData.email);
+  const [profileEditMode, setProfileEditMode] = useState(false);
+  const [changePassMode, setChangePassMode] = useState(false);
+  const [newPass, setNewPass] = useState('');
+
+  const apiBaseUrl = "https://defiance-trustable-washstand.ngrok-free.dev";
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Track fullscreen changes
-  React.useEffect(() => {
+  useEffect(() => {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      videoContainerRef.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-  };
-
-  // Sync play/pause with state
   useEffect(() => {
     if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.play().catch(() => {});
-      } else {
-        videoRef.current.pause();
-      }
+      if (isPlaying) videoRef.current.play().catch(() => {});
+      else videoRef.current.pause();
     }
   }, [isPlaying, activeScreen]);
-
-  // Auto-simulation trigger
-  const [isSimulating, setIsSimulating] = useState(false);
-
-  // Time formatting helper
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Video playback simulation (keep for Screen 3)
-  useEffect(() => {
-    let playbackInterval: any;
-    if (activeScreen === 3 && isPlaying) {
-      playbackInterval = setInterval(() => {
-        setPlaybackTime(prev => {
-          if (prev >= 195) { 
-            if (videoRef.current) videoRef.current.currentTime = 0;
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(playbackInterval);
-  }, [activeScreen, isPlaying]);
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -128,8 +123,12 @@ export default function App() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const [uploadedVideoFile, setUploadedVideoFile] = useState<File | null>(null);
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) videoContainerRef.current?.requestFullscreen();
+    else document.exitFullscreen();
+  };
 
+  // ── File Select (no auto-process) ────────────────────────────
   const handleFileSelect = (fileName: string, fileUrl?: string, file?: File) => {
     setSelectedFile(fileName);
     if (fileUrl) setUploadedVideoUrl(fileUrl);
@@ -137,26 +136,27 @@ export default function App() {
     triggerToast(`Selected: ${fileName}`);
   };
 
+  // ── Process ──────────────────────────────────────────────────
   const handleStartProcess = async () => {
-    if (!uploadedVideoFile && !uploadedVideoUrl && !selectedFile) {
+    if (!uploadedVideoFile && !selectedFile) {
       triggerToast("Please select a video file first!");
       return;
     }
-
     if (uploadMode === 'custom' && customLyrics.trim() === '') {
       triggerToast("Please enter or paste your lyrics first!");
       return;
     }
 
+    const startTs = Date.now();
+    setProcessingStartTime(startTs);
     setActiveScreen(2);
+    setProcessingProgress(5);
+
+    const fakeProgress = setInterval(() => {
+      setProcessingProgress(p => p < 90 ? p + 2 : p);
+    }, 3000);
 
     if (uploadedVideoFile) {
-      // Fake progress bar while waiting for real API
-      setProcessingProgress(5);
-      const fakeProgress = setInterval(() => {
-        setProcessingProgress(p => p < 90 ? p + 2 : p);
-      }, 3000);
-
       try {
         const formData = new FormData();
         formData.append("video", uploadedVideoFile);
@@ -164,67 +164,51 @@ export default function App() {
         if (uploadMode === 'custom' && customLyrics.trim() !== '') {
           formData.append("custom_lyrics", customLyrics.trim());
         }
-
-        // Send to real Python backend!
         const response = await fetch(`${apiBaseUrl}/generate`, {
           method: "POST",
-          headers: {
-            "ngrok-skip-browser-warning": "69420"
-          },
+          headers: { "ngrok-skip-browser-warning": "69420" },
           body: formData,
         });
-
         if (response.ok) {
           const data = await response.json();
           setJobId(data.job_id);
           setSegments(data.segments);
-          
-          // Set video title to first 3 words of generated lyrics
-          if (data.segments && data.segments.length > 0) {
-            let firstWords: string[] = [];
+          if (data.segments?.length > 0) {
+            let words: string[] = [];
             for (const seg of data.segments) {
-              if (seg.words) {
-                firstWords.push(...seg.words.map((w:any) => w.word));
-              } else if (seg.text) {
-                firstWords.push(...seg.text.split(' '));
-              }
-              if (firstWords.length >= 3) break;
+              if (seg.words) words.push(...seg.words.map((w: any) => w.word));
+              else if (seg.text) words.push(...seg.text.split(' '));
+              if (words.length >= 3) break;
             }
-            if (firstWords.length > 0) {
-              setVideoTitle(firstWords.slice(0, 3).join(' '));
-            }
+            if (words.length > 0) setVideoTitle(words.slice(0, 3).join(' '));
           }
-
-          // Fetch video as blob with ngrok header (video tag can't send custom headers)
-          const videoResp = await fetch(apiBaseUrl + data.video_url, {
-            headers: { "ngrok-skip-browser-warning": "69420" }
-          });
+          const videoResp = await fetch(apiBaseUrl + data.video_url, { headers: { "ngrok-skip-browser-warning": "69420" } });
           const videoBlob = await videoResp.blob();
-          const localVideoUrl = URL.createObjectURL(videoBlob);
-          setUploadedVideoUrl(localVideoUrl);
-          
+          setUploadedVideoUrl(URL.createObjectURL(videoBlob));
           clearInterval(fakeProgress);
           setProcessingProgress(100);
-          
+          const elapsed = Math.round((Date.now() - startTs) / 1000);
+          setLastProcessingTime(elapsed);
+          finishProject(elapsed);
           setTimeout(() => setActiveScreen(3), 800);
         } else {
-          console.error("Backend error");
           clearInterval(fakeProgress);
           triggerToast("Processing failed. Please check backend logs.");
         }
       } catch (err) {
-        console.error(err);
         clearInterval(fakeProgress);
         triggerToast("Network Error connecting to backend.");
       }
     } else {
-      // Mock processing for sample demo video
       setProcessingProgress(10);
-      const fakeProgress = setInterval(() => {
+      const mock = setInterval(() => {
         setProcessingProgress(p => {
           if (p >= 90) {
-            clearInterval(fakeProgress);
+            clearInterval(mock);
             setProcessingProgress(100);
+            const elapsed = Math.round((Date.now() - startTs) / 1000);
+            setLastProcessingTime(elapsed);
+            finishProject(elapsed);
             setTimeout(() => setActiveScreen(3), 600);
             return 100;
           }
@@ -234,36 +218,38 @@ export default function App() {
     }
   };
 
-  const getFileSize = () => {
-    // Rough estimate: Original ~same as input, HD adds ~40% for re-encoding
-    const base = selectedQuality === 'HD' ? 58.4 : 42.8;
-    return base.toFixed(1);
+  const finishProject = (elapsed: number) => {
+    const proj: Project = {
+      id: `p${Date.now()}`,
+      title: videoTitle || selectedFile?.replace(/\.[^.]+$/, '') || 'Untitled',
+      date: now(),
+      duration: videoDuration > 0 ? formatTime(videoDuration) : '--:--',
+      mode: uploadMode,
+      processingTime: elapsed,
+      status: 'done',
+    };
+    setProjects(prev => [proj, ...prev]);
   };
 
   const handleExport = async () => {
     if (!jobId) return;
     setIsExporting(true);
-    setActiveScreen(4); // Jump to export screen immediately
+    setActiveScreen(4);
     triggerToast("Burning final subtitles... Please wait!");
-    
     try {
       const response = await fetch(`${apiBaseUrl}/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           job_id: jobId,
-          segments: segments,
+          segments,
           font_size: subtitleStyle.fontSize,
           alignment: subtitleStyle.alignment === 'top' ? 8 : subtitleStyle.alignment === 'middle' ? 5 : 2
         })
       });
-      
       if (response.ok) {
         const data = await response.json();
-        // Fetch exported video as blob (ngrok header needed)
-        const vResp = await fetch(apiBaseUrl + data.video_url, {
-          headers: { "ngrok-skip-browser-warning": "69420" }
-        });
+        const vResp = await fetch(apiBaseUrl + data.video_url, { headers: { "ngrok-skip-browser-warning": "69420" } });
         const vBlob = await vResp.blob();
         const blobUrl = URL.createObjectURL(vBlob);
         setExportedBlobUrl(blobUrl);
@@ -274,45 +260,846 @@ export default function App() {
         triggerToast("Export failed on server!");
         setIsExporting(false);
       }
-    } catch(e) {
+    } catch (e) {
       triggerToast("Network error during export.");
       setIsExporting(false);
     }
   };
 
+  const getFileSize = () => (selectedQuality === 'HD' ? 58.4 : 42.8).toFixed(1);
   const activeSegment = segments.find(s => playbackTime >= s.start && playbackTime <= s.end);
 
+  // ── Analytics stats ──────────────────────────────────────────
+  const totalProjects = projects.length;
+  const avgTime = totalProjects > 0 ? Math.round(projects.reduce((s, p) => s + p.processingTime, 0) / totalProjects) : 0;
+  const fastestTime = totalProjects > 0 ? Math.min(...projects.map(p => p.processingTime)) : 0;
+  const autoCount = projects.filter(p => p.mode === 'auto').length;
+  const customCount = projects.filter(p => p.mode === 'custom').length;
+
+  // ─────────────────────────────────────────────────────────────
+  // Auth Screens
+  // ─────────────────────────────────────────────────────────────
+  const handleLogin = () => {
+    if (!loginEmail || !loginPass) { triggerToast("Please fill in all fields"); return; }
+    setUserData({ name: loginEmail.split('@')[0], email: loginEmail });
+    setProfileName(loginEmail.split('@')[0]);
+    setProfileEmail(loginEmail);
+    setAuthScreen('app');
+  };
+  const handleSignup = () => {
+    if (!signupName || !signupEmail || !signupPass) { triggerToast("Please fill in all fields"); return; }
+    setUserData({ name: signupName, email: signupEmail });
+    setProfileName(signupName);
+    setProfileEmail(signupEmail);
+    setAuthScreen('app');
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // Phone canvas inner content
+  // ─────────────────────────────────────────────────────────────
+  const renderPhoneContent = () => {
+    if (authScreen === 'login') return renderLogin();
+    if (authScreen === 'signup') return renderSignup();
+    return renderAppShell();
+  };
+
+  // ── Login ────────────────────────────────────────────────────
+  const renderLogin = () => (
+    <div className="flex-grow bg-[#FAF9FF] flex flex-col justify-between px-5 pb-6 pt-8">
+      <div className="space-y-2 text-center pb-4">
+        <div className="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center mx-auto shadow-lg shadow-violet-300">
+          <Mic2 size={24} className="text-white" />
+        </div>
+        <h1 className="text-lg font-black text-slate-800">Welcome to KaraokeAI</h1>
+        <p className="text-[11px] text-slate-400">Sign in to access your karaoke projects</p>
+      </div>
+
+      <div className="space-y-3 flex-grow">
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">Email</label>
+          <div className="relative">
+            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="email"
+              value={loginEmail}
+              onChange={e => setLoginEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full pl-8 pr-3 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-700 placeholder-slate-300"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">Password</label>
+          <div className="relative">
+            <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type={showPass ? 'text' : 'password'}
+              value={loginPass}
+              onChange={e => setLoginPass(e.target.value)}
+              placeholder="••••••••"
+              className="w-full pl-8 pr-8 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-slate-700 placeholder-slate-300"
+            />
+            <button onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              {showPass ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+          </div>
+        </div>
+
+        <button
+          onClick={handleLogin}
+          className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-violet-300 transition-all cursor-pointer mt-2"
+        >
+          Sign In
+        </button>
+
+        <div className="text-center pt-2">
+          <span className="text-[11px] text-slate-400">Don't have an account? </span>
+          <button onClick={() => setAuthScreen('signup')} className="text-[11px] font-bold text-violet-600 cursor-pointer">Sign Up</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Signup ───────────────────────────────────────────────────
+  const renderSignup = () => (
+    <div className="flex-grow bg-[#FAF9FF] flex flex-col justify-between px-5 pb-6 pt-6">
+      <div className="space-y-1 text-center pb-3">
+        <div className="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center mx-auto shadow-lg shadow-violet-300">
+          <Mic2 size={24} className="text-white" />
+        </div>
+        <h1 className="text-lg font-black text-slate-800">Create Account</h1>
+        <p className="text-[11px] text-slate-400">Start creating AI karaoke videos</p>
+      </div>
+      <div className="space-y-3 flex-grow">
+        {[
+          { label: 'Name', icon: User, val: signupName, set: setSignupName, type: 'text', ph: 'Your name' },
+          { label: 'Email', icon: Mail, val: signupEmail, set: setSignupEmail, type: 'email', ph: 'you@example.com' },
+          { label: 'Password', icon: Lock, val: signupPass, set: setSignupPass, type: 'password', ph: '••••••••' },
+        ].map(({ label, icon: Icon, val, set, type, ph }) => (
+          <div key={label}>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">{label}</label>
+            <div className="relative">
+              <Icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type={type}
+                value={val}
+                onChange={e => set(e.target.value)}
+                placeholder={ph}
+                className="w-full pl-8 pr-3 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 text-slate-700 placeholder-slate-300"
+              />
+            </div>
+          </div>
+        ))}
+        <button
+          onClick={handleSignup}
+          className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md shadow-violet-300 cursor-pointer mt-1"
+        >
+          Create Account
+        </button>
+        <div className="text-center pt-1">
+          <span className="text-[11px] text-slate-400">Already have an account? </span>
+          <button onClick={() => setAuthScreen('login')} className="text-[11px] font-bold text-violet-600 cursor-pointer">Sign In</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── App Shell (post-auth) ────────────────────────────────────
+  const renderAppShell = () => (
+    <div className="flex-grow bg-[#FAF9FF] relative overflow-hidden flex flex-col text-slate-900">
+      {/* Status Bar */}
+      <div className="h-10 bg-[#FAF9FF] text-slate-800 px-5 pt-3 flex justify-between items-center text-[10px] font-bold z-30 select-none shrink-0">
+        <span>09:41</span>
+        <div className="flex items-center gap-1.5">
+          <span className="tracking-widest">LTE</span>
+          <div className="w-5 h-2.5 border border-slate-800 rounded-sm p-0.5 flex items-center">
+            <div className="h-full w-4/5 bg-slate-800 rounded-full" />
+          </div>
+        </div>
+      </div>
+
+      {/* Inner content — conditional on tab */}
+      <div className="flex-grow overflow-y-auto relative">
+        {/* Karaoke Creation Flow (inside Projects > Create) */}
+        {activeTab === 'projects' && projectsTab === 'create' ? (
+          renderKaraokeFlow()
+        ) : activeTab === 'home' ? renderHome()
+          : activeTab === 'projects' ? renderProjects()
+          : activeTab === 'analytics' ? renderAnalytics()
+          : renderProfile()}
+      </div>
+
+      {/* Bottom Tab Bar */}
+      {!(activeTab === 'projects' && projectsTab === 'create' && activeScreen > 1) && (
+        <footer className="h-16 bg-white border-t border-slate-100 px-2 flex justify-around items-center shrink-0 select-none">
+          {([
+            { key: 'home', icon: Home, label: 'Home' },
+            { key: 'projects', icon: Film, label: 'Projects' },
+            { key: 'analytics', icon: BarChart2, label: 'Analytics' },
+            { key: 'profile', icon: User, label: 'Profile' },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => {
+                setActiveTab(tab.key);
+                if (tab.key === 'projects') setProjectsTab('all');
+              }}
+              className="flex flex-col items-center justify-center gap-0.5 w-14 cursor-pointer"
+            >
+              <tab.icon
+                size={18}
+                className={activeTab === tab.key ? 'text-violet-600' : 'text-slate-400'}
+                strokeWidth={activeTab === tab.key ? 2.5 : 2}
+              />
+              <span className={`text-[9px] font-bold ${activeTab === tab.key ? 'text-violet-600' : 'text-slate-400'}`}>
+                {tab.label}
+              </span>
+            </button>
+          ))}
+        </footer>
+      )}
+    </div>
+  );
+
+  // ── HOME TAB ─────────────────────────────────────────────────
+  const renderHome = () => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
+      {/* Greeting */}
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-[11px] text-slate-400 font-medium">Good morning 👋</p>
+          <h2 className="text-sm font-black text-slate-800">{userData.name}</h2>
+        </div>
+        <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
+          {userData.name[0].toUpperCase()}
+        </div>
+      </div>
+
+      {/* Quick Create Banner */}
+      <div
+        onClick={() => { setActiveTab('projects'); setProjectsTab('create'); setActiveScreen(1); }}
+        className="w-full rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 p-4 flex items-center justify-between cursor-pointer shadow-lg shadow-violet-300/40"
+      >
+        <div>
+          <p className="text-white font-black text-sm">Create Karaoke Video</p>
+          <p className="text-violet-200 text-[10px] mt-0.5">Upload video → AI generates lyrics</p>
+        </div>
+        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+          <Plus size={20} className="text-white" />
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Videos', value: totalProjects, icon: Film, color: 'text-violet-600', bg: 'bg-violet-50' },
+          { label: 'Avg Time', value: `${avgTime}s`, icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'This Week', value: projects.filter(p => p.date.includes('Oct')).length, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        ].map(({ label, value, icon: Icon, color, bg }) => (
+          <div key={label} className={`${bg} rounded-xl p-3 text-center`}>
+            <Icon size={16} className={`${color} mx-auto mb-1`} />
+            <p className="text-sm font-black text-slate-800">{value}</p>
+            <p className="text-[9px] text-slate-500 font-semibold">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Recent Projects */}
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Recent Projects</span>
+          <button onClick={() => setActiveTab('projects')} className="text-[10px] font-bold text-violet-600 cursor-pointer">View all</button>
+        </div>
+        {projects.slice(0, 2).map(p => (
+          <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 mb-2 shadow-sm">
+            <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
+              <Music size={16} className="text-violet-600" />
+            </div>
+            <div className="flex-grow min-w-0">
+              <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
+              <p className="text-[10px] text-slate-400">{p.date} · {p.duration}</p>
+            </div>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+              {p.mode === 'auto' ? 'Auto' : 'Custom'}
+            </span>
+          </div>
+        ))}
+        {projects.length === 0 && (
+          <div className="text-center py-8 text-slate-400">
+            <Film size={28} className="mx-auto mb-2 opacity-40" />
+            <p className="text-xs">No projects yet. Create your first one!</p>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+
+  // ── PROJECTS TAB ─────────────────────────────────────────────
+  const renderProjects = () => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-sm font-black text-slate-800">Projects</h2>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setProjectsView(v => v === 'list' ? 'cards' : 'list')} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 cursor-pointer">
+              {projectsView === 'list' ? <LayoutGrid size={15} /> : <List size={15} />}
+            </button>
+            <button
+              onClick={() => { setProjectsTab('create'); setActiveScreen(1); setSelectedFile(null); setUploadedVideoFile(null); setUploadedVideoUrl(null); setCustomLyrics(''); }}
+              className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+            >
+              <Plus size={12} /> New
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-slate-100 p-0.5 rounded-xl">
+          {(['all', 'create'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => { setProjectsTab(t); if (t === 'create') { setActiveScreen(1); setSelectedFile(null); setUploadedVideoFile(null); setUploadedVideoUrl(null); setCustomLyrics(''); } }}
+              className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg capitalize transition-colors ${projectsTab === t ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              {t === 'all' ? `All (${projects.length})` : '+ Create New'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="flex-grow overflow-y-auto px-4 pb-4">
+        {projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+            <Film size={36} className="opacity-30" />
+            <p className="text-xs text-center">No projects yet.<br />Create your first karaoke!</p>
+            <button
+              onClick={() => { setProjectsTab('create'); setActiveScreen(1); }}
+              className="mt-2 px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl cursor-pointer"
+            >
+              + Create Now
+            </button>
+          </div>
+        ) : projectsView === 'list' ? (
+          <div className="space-y-2 pt-2">
+            {projects.map(p => (
+              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                  <Music size={18} className="text-violet-600" />
+                </div>
+                <div className="flex-grow min-w-0">
+                  <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
+                  <p className="text-[10px] text-slate-400">{p.date} · {p.duration} · {formatDuration(p.processingTime)}</p>
+                </div>
+                <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 pt-2">
+            {projects.map(p => (
+              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm">
+                <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                  <Music size={22} className="text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-slate-800 truncate">{p.title}</p>
+                  <p className="text-[9px] text-slate-400">{p.date}</p>
+                </div>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                  {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+
+  // ── ANALYTICS TAB ────────────────────────────────────────────
+  const renderAnalytics = () => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
+      <h2 className="text-sm font-black text-slate-800">Analytics</h2>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-2.5">
+        {[
+          { label: 'Total Videos', value: totalProjects, icon: Film, color: 'bg-violet-600' },
+          { label: 'Avg Process Time', value: `${avgTime}s`, icon: Clock, color: 'bg-indigo-600' },
+          { label: 'Fastest Job', value: `${fastestTime}s`, icon: Zap, color: 'bg-amber-500' },
+          { label: 'Custom Lyrics', value: customCount, icon: FileText, color: 'bg-emerald-600' },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+            <div className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center mb-2`}>
+              <Icon size={14} className="text-white" />
+            </div>
+            <p className="text-sm font-black text-slate-800">{value}</p>
+            <p className="text-[10px] text-slate-400">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Mode breakdown */}
+      <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Mode Breakdown</p>
+        <div className="flex gap-2 mb-2">
+          <div className="flex-grow bg-violet-500 rounded-full h-2" style={{ flex: autoCount }} />
+          <div className="flex-grow bg-indigo-400 rounded-full h-2" style={{ flex: customCount || 0.01 }} />
+        </div>
+        <div className="flex justify-between text-[10px] font-bold">
+          <span className="text-violet-600">⚡ Auto: {autoCount}</span>
+          <span className="text-indigo-600">📝 Custom: {customCount}</span>
+        </div>
+      </div>
+
+      {/* Per-project processing times */}
+      <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Processing Times</p>
+        {projects.length === 0 ? (
+          <p className="text-xs text-slate-300 text-center py-3">No data yet</p>
+        ) : (
+          <div className="space-y-2">
+            {projects.map(p => (
+              <div key={p.id} className="flex items-center gap-2">
+                <div className="w-20 shrink-0">
+                  <p className="text-[10px] font-bold text-slate-700 truncate">{p.title}</p>
+                  <p className="text-[9px] text-slate-400">{p.date}</p>
+                </div>
+                <div className="flex-grow bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full bg-violet-500 rounded-full"
+                    style={{ width: `${Math.min((p.processingTime / Math.max(...projects.map(x => x.processingTime))) * 100, 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-violet-600 shrink-0">{formatDuration(p.processingTime)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {lastProcessingTime !== null && (
+        <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 flex items-center gap-3">
+          <Zap size={18} className="text-violet-600 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-violet-800">Last job took {formatDuration(lastProcessingTime)}</p>
+            <p className="text-[10px] text-violet-500">Backend performance</p>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+
+  // ── PROFILE TAB ──────────────────────────────────────────────
+  const renderProfile = () => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
+      {/* Avatar */}
+      <div className="flex flex-col items-center gap-2 pb-2">
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-violet-300/50">
+          {userData.name[0].toUpperCase()}
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-black text-slate-800">{userData.name}</p>
+          <p className="text-[11px] text-slate-400">{userData.email}</p>
+        </div>
+      </div>
+
+      {/* Account Info */}
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1">Account Info</p>
+        {profileEditMode ? (
+          <div className="px-4 pb-3 space-y-2">
+            <input
+              value={profileName}
+              onChange={e => setProfileName(e.target.value)}
+              className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              placeholder="Name"
+            />
+            <input
+              value={profileEmail}
+              onChange={e => setProfileEmail(e.target.value)}
+              className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              placeholder="Email"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setUserData({ name: profileName, email: profileEmail }); setProfileEditMode(false); triggerToast('Profile saved!'); }}
+                className="flex-1 py-2 bg-violet-600 text-white text-xs font-bold rounded-lg cursor-pointer"
+              >Save</button>
+              <button onClick={() => setProfileEditMode(false)} className="flex-1 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {[{ label: 'Name', value: userData.name }, { label: 'Email', value: userData.email }].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center px-4 py-2.5 border-b border-slate-50 last:border-none">
+                <span className="text-[11px] text-slate-500">{label}</span>
+                <span className="text-[11px] font-bold text-slate-800 truncate max-w-[60%] text-right">{value}</span>
+              </div>
+            ))}
+            <div className="px-4 pb-3 pt-2">
+              <button onClick={() => setProfileEditMode(true)} className="w-full py-2 text-[11px] font-bold text-violet-600 border border-violet-200 rounded-lg flex items-center justify-center gap-1 cursor-pointer hover:bg-violet-50">
+                <Edit3 size={12} /> Edit Profile
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1">Security</p>
+        {changePassMode ? (
+          <div className="px-4 pb-3 space-y-2">
+            <input
+              type="password"
+              value={newPass}
+              onChange={e => setNewPass(e.target.value)}
+              placeholder="New password"
+              className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setNewPass(''); setChangePassMode(false); triggerToast('Password changed!'); }}
+                className="flex-1 py-2 bg-violet-600 text-white text-xs font-bold rounded-lg cursor-pointer"
+              >Update</button>
+              <button onClick={() => setChangePassMode(false)} className="flex-1 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setChangePassMode(true)} className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50">
+            <div className="flex items-center gap-2">
+              <Key size={14} className="text-slate-400" />
+              <span className="text-[11px] font-bold text-slate-700">Change Password</span>
+            </div>
+            <ChevronRight size={14} className="text-slate-300" />
+          </button>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+        <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Your Stats</p>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div><p className="text-sm font-black text-slate-800">{totalProjects}</p><p className="text-[9px] text-slate-400">Videos</p></div>
+          <div><p className="text-sm font-black text-slate-800">{autoCount}</p><p className="text-[9px] text-slate-400">Auto</p></div>
+          <div><p className="text-sm font-black text-slate-800">{customCount}</p><p className="text-[9px] text-slate-400">Custom</p></div>
+        </div>
+      </div>
+
+      {/* Logout */}
+      <button
+        onClick={() => { setAuthScreen('login'); setLoginEmail(''); setLoginPass(''); triggerToast('Logged out'); }}
+        className="w-full py-3 border border-red-200 text-red-500 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-red-50"
+      >
+        <LogOut size={14} /> Log Out
+      </button>
+    </motion.div>
+  );
+
+  // ── KARAOKE CREATION FLOW ────────────────────────────────────
+  const renderKaraokeFlow = () => (
+    <div className="flex-grow bg-[#FAF9FF] flex flex-col h-full">
+      {/* Mini header with back */}
+      <header className="h-12 px-4 flex items-center gap-2 bg-[#FAF9FF] shrink-0 border-b border-slate-100">
+        {activeScreen > 1 ? (
+          <button onClick={() => setActiveScreen(s => Math.max(1, s - 1) as any)} className="p-1 rounded-full hover:bg-slate-100">
+            <ChevronLeft size={18} className="text-slate-700" />
+          </button>
+        ) : (
+          <button onClick={() => setProjectsTab('all')} className="p-1 rounded-full hover:bg-slate-100">
+            <ChevronLeft size={18} className="text-slate-700" />
+          </button>
+        )}
+        <span className="font-extrabold text-[#7C3AED] text-base tracking-tight">KaraokeAI</span>
+      </header>
+
+      <div className="flex-grow overflow-y-auto px-4 pb-4">
+        {/* SCREEN 1: UPLOAD */}
+        {activeScreen === 1 && (
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col min-h-full py-2" style={{ minHeight: 'calc(100% - 0px)' }}>
+            <div className="space-y-4 flex-grow">
+              <div className="text-center space-y-1 py-2">
+                <h2 className="text-sm font-bold text-slate-700">Create New Karaoke</h2>
+                <p className="text-[11px] text-slate-400 leading-snug px-6">
+                  {uploadMode === 'custom' ? 'Upload a video and paste lyrics to sync them using AI.' : 'Upload a video to isolate vocals and generate lyrics using AI.'}
+                </p>
+              </div>
+
+              <div className="flex bg-slate-50 p-1 rounded-xl shadow-inner">
+                {(['auto', 'custom'] as const).map(m => (
+                  <button key={m} onClick={() => setUploadMode(m)} className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${uploadMode === m ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                    {m === 'auto' ? 'Auto Generate Lyrics' : 'Provide Lyrics'}
+                  </button>
+                ))}
+              </div>
+
+              {uploadMode === 'custom' && (
+                <textarea
+                  value={customLyrics}
+                  onChange={e => setCustomLyrics(e.target.value)}
+                  placeholder="Paste your lyrics here to align perfectly with the audio..."
+                  className="w-full h-24 p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none text-slate-700 placeholder-slate-400"
+                />
+              )}
+
+              <input
+                type="file" id="real-file-input" accept="video/*,audio/*" className="hidden"
+                onChange={e => { if (e.target.files?.[0]) { const f = e.target.files[0]; handleFileSelect(f.name, URL.createObjectURL(f), f); } }}
+              />
+
+              {selectedFile ? (
+                <div className="w-full border border-violet-200 bg-violet-50/50 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0">
+                      <Film size={20} />
+                    </div>
+                    <div className="truncate">
+                      <span className="text-xs font-bold text-slate-800 block truncate">{selectedFile}</span>
+                      <span className="text-[10px] text-violet-600 font-medium flex items-center gap-1"><Check size={12} /> Video Selected</span>
+                    </div>
+                  </div>
+                  <button onClick={() => document.getElementById('real-file-input')?.click()} className="px-3 py-1.5 text-[11px] font-bold text-violet-600 hover:bg-violet-100 rounded-lg shrink-0 cursor-pointer">Change</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => document.getElementById('real-file-input')?.click()}
+                  className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-7 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
+                    <Upload size={20} />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <span className="text-[12px] font-bold text-violet-600 block">Upload Video</span>
+                    <span className="text-[10px] text-slate-400 block">Tap to browse files</span>
+                  </div>
+                </button>
+              )}
+
+              {uploadMode === 'auto' && (
+                <div className="grid grid-cols-3 gap-2">
+                  {[{ name: 'Gallery', icon: ImageIcon, file: 'gallery_shot_03.mp4' }, { name: 'Files', icon: FolderOpen, file: 'mysong2.mp4' }, { name: 'Camera', icon: Camera, file: 'camera_capture.mp4' }].map(src => (
+                    <button key={src.name} onClick={() => handleFileSelect(src.file)} className="bg-white border border-slate-100 rounded-xl p-2.5 flex flex-col items-center gap-1 hover:bg-slate-50 shadow-sm cursor-pointer">
+                      <src.icon size={16} className="text-slate-500" />
+                      <span className="text-[10px] font-bold text-slate-600">{src.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 mt-auto">
+              <button onClick={handleStartProcess} className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md shadow-violet-300/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]">
+                <Sparkles size={18} />
+                <span className="text-xs tracking-wide">Process</span>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* SCREEN 2: PROCESSING */}
+        {activeScreen === 2 && (
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex-grow flex flex-col py-2 space-y-5">
+            <div className="flex flex-col items-center py-2 space-y-4">
+              <div className="relative w-36 h-36 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" stroke="#E2E8F0" strokeWidth="8" fill="transparent" />
+                  <circle cx="50" cy="50" r="42" stroke="#7C3AED" strokeWidth="8" fill="transparent" strokeDasharray={263.89} strokeDashoffset={263.89 - (263.89 * processingProgress) / 100} strokeLinecap="round" className="transition-all duration-150 ease-out" />
+                </svg>
+                <div className="absolute flex flex-col items-center justify-center">
+                  <span className="text-2xl font-black text-slate-800">{processingProgress}%</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Processing</span>
+                </div>
+              </div>
+              <div className="text-center">
+                <span className="text-xs font-bold text-slate-700 flex items-center justify-center gap-1"><Clock size={12} className="text-violet-500" /> {Math.ceil((100 - processingProgress) * 0.45)}s remaining</span>
+                <span className="text-[10px] text-slate-400 block">Your AI vocals are being refined</span>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 space-y-2">
+              <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase"><span>Live Spectrogram</span><span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" /> Active</span></div>
+              <div className="h-12 flex items-end justify-between gap-0.5 px-2">
+                {Array.from({ length: 26 }).map((_, i) => (
+                  <motion.div key={i} animate={{ height: activeScreen === 2 ? [8, Math.random() * 40 + 8, 8] : 8 }} transition={{ repeat: Infinity, duration: 0.8 + Math.random() * 0.5, ease: "easeInOut" }} className="w-1 bg-gradient-to-t from-violet-400 to-violet-600 rounded-full" />
+                ))}
+              </div>
+            </div>
+            <div className="bg-white border border-slate-100 rounded-2xl p-3 space-y-2.5">
+              <span className="text-[9px] font-extrabold text-violet-500 uppercase tracking-widest block">Workflow Steps</span>
+              <div className="space-y-2 text-xs">
+                {[{ label: 'Extracting Audio', status: processingProgress > 30 ? 'Done' : 'Active' }, { label: 'Speech Recognition', status: processingProgress > 60 ? 'Done' : processingProgress > 30 ? 'Active' : 'Pending' }, { label: 'Word-Level Timing', status: processingProgress > 85 ? 'Done' : processingProgress > 60 ? 'Active' : 'Pending' }, { label: 'Subtitle Generation', status: processingProgress === 100 ? 'Done' : processingProgress > 85 ? 'Active' : 'Pending' }].map((step, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-1.5 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      {step.status === 'Done' ? <CheckCircle size={14} className="text-violet-600 fill-violet-50" /> : step.status === 'Active' ? <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-200" />}
+                      <span className={`font-semibold ${step.status === 'Pending' ? 'text-slate-300' : 'text-slate-700'}`}>{step.label}</span>
+                    </div>
+                    <span className={`text-[10px] font-bold ${step.status === 'Done' ? 'text-violet-600' : step.status === 'Pending' ? 'text-slate-300' : 'text-violet-500'}`}>{step.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => { setActiveScreen(1); setProcessingProgress(0); }} className="w-full py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer">Cancel ×</button>
+          </motion.div>
+        )}
+
+        {/* SCREEN 3: PREVIEW */}
+        {activeScreen === 3 && (
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex-grow flex flex-col py-2 space-y-4">
+            <div ref={videoContainerRef} className="relative w-full min-h-[40vh] max-h-[55vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center" style={{ isolation: 'isolate' }}>
+              <style>{`:fullscreen .subtitle-overlay { display: flex !important; } :-webkit-full-screen .subtitle-overlay { display: flex !important; } :fullscreen video { width: 100%; height: 100%; object-fit: contain; } video::-webkit-media-controls-fullscreen-button { display: none !important; }`}</style>
+              {uploadedVideoUrl ? (
+                <video ref={videoRef} src={uploadedVideoUrl} className="w-full h-full object-contain" autoPlay loop playsInline controls controlsList="nofullscreen" onTimeUpdate={() => setPlaybackTime(videoRef.current?.currentTime || 0)} onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)} />
+              ) : (
+                <img src={waterfallImg} alt="preview" className="w-full h-full object-contain opacity-60" />
+              )}
+              <div className="absolute top-6 left-0 right-0 px-6 text-center z-10">
+                {isEditingTitle ? (
+                  <input type="text" value={videoTitle} onChange={e => setVideoTitle(e.target.value)} onBlur={() => setIsEditingTitle(false)} className="bg-black/60 text-white text-xs font-bold text-center py-1 px-3 rounded-full border border-violet-500 focus:outline-none w-4/5" autoFocus />
+                ) : (
+                  <span onClick={() => setIsEditingTitle(true)} className="bg-black/50 text-white text-[11px] font-semibold py-1.5 px-3 rounded-full inline-flex items-center gap-1.5 cursor-pointer hover:bg-black/70 border border-white/10">{videoTitle} <span className="text-[9px] bg-violet-600/80 px-1.5 py-0.5 rounded text-white font-mono uppercase">Edit</span></span>
+                )}
+              </div>
+              {activeSegment && (
+                <div className={`subtitle-overlay absolute left-0 right-0 px-6 text-center z-10 pointer-events-none ${subtitleStyle.alignment === 'top' ? 'top-10' : subtitleStyle.alignment === 'middle' ? 'top-1/2 -translate-y-1/2' : 'bottom-12'}`}>
+                  <p className="text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight" style={{ fontSize: `${subtitleStyle.fontSize}px` }}>
+                    {activeSegment.words ? activeSegment.words.map((w: any, i: number) => (
+                      <span key={i} className={playbackTime >= w.start ? 'text-violet-400 drop-shadow-[0_0_8px_rgba(124,58,237,0.8)]' : 'text-white'}>{w.word} </span>
+                    )) : activeSegment.text}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-sm">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Subtitle Styling</span>
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600"><span>Font Size</span><span className="text-violet-600">{subtitleStyle.fontSize}px</span></div>
+              <input type="range" min="12" max="64" value={subtitleStyle.fontSize} className="w-full accent-violet-600" onChange={e => setSubtitleStyle({ ...subtitleStyle, fontSize: parseInt(e.target.value) })} />
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {['bottom', 'middle', 'top'].map(align => (
+                  <button key={align} onClick={() => setSubtitleStyle({ ...subtitleStyle, alignment: align })} className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${subtitleStyle.alignment === align ? 'bg-violet-50 text-violet-600 border border-violet-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>{align}</button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={() => triggerToast('Opened Subtitle Editor')} className="py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm cursor-pointer">Edit</button>
+              <button onClick={() => { setProcessingProgress(0); setActiveScreen(2); }} className="py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm cursor-pointer">Redo</button>
+              <button onClick={handleExport} disabled={isExporting} className={`py-2.5 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer ${isExporting ? 'bg-slate-400' : 'bg-violet-600 hover:bg-violet-700'}`}>{isExporting ? '...' : 'Export'}</button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* SCREEN 4: EXPORT */}
+        {activeScreen === 4 && (
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex-grow flex flex-col py-2 space-y-4">
+            <div className="space-y-4">
+              <div className="text-center py-2 space-y-1.5">
+                {isExporting ? (
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center mx-auto"><div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" /></div>
+                    <h2 className="text-sm font-bold text-slate-800">Burning Final Subtitles...</h2>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto"><Check size={20} strokeWidth={3} /></div>
+                    <h2 className="text-sm font-bold text-slate-800">Ready to Share!</h2>
+                    <p className="text-[10px] text-slate-400 px-6">Your AI-enhanced karaoke is ready.</p>
+                  </>
+                )}
+              </div>
+              {!isExporting && (
+                <>
+                  <div className="bg-white border border-slate-100 p-2.5 rounded-2xl flex items-center gap-3 shadow-sm">
+                    {uploadedVideoUrl ? <video src={`${uploadedVideoUrl}#t=0.1`} preload="metadata" className="w-12 h-12 object-cover rounded-lg bg-black" /> : <img src={waterfallImg} alt="thumb" className="w-12 h-12 object-cover rounded-lg" />}
+                    <div className="flex-grow text-left">
+                      <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">{selectedFile?.replace(/\.[^.]+$/, '') || videoTitle}</h4>
+                      <span className="text-[9px] text-slate-400 font-mono">{videoDuration > 0 ? formatTime(videoDuration) : '--:--'}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-slate-100 p-3.5 rounded-2xl space-y-3 shadow-sm text-left">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Video Quality</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['Original', 'HD'] as const).map(q => (
+                        <button key={q} onClick={() => setSelectedQuality(q)} className={`py-1.5 text-[11px] font-bold rounded-lg transition-colors ${selectedQuality === q ? 'bg-violet-600 text-white' : 'bg-slate-50 text-slate-500'}`}>{q === 'HD' ? '🎬 HD' : '📁 Original'}</button>
+                      ))}
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2 flex items-center justify-between border border-slate-100 px-4">
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Est. Size</span>
+                      <span className="text-[12px] font-black text-violet-600">{getFileSize()} MB</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-left">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Share Directly To</span>
+                    <div className="grid grid-cols-3 gap-3">
+                      <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Check out my karaoke video! 🎤')}`, '_blank')} className="flex flex-col items-center justify-center gap-1 py-3 bg-[#25D366] rounded-2xl hover:opacity-90 cursor-pointer">
+                        <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        <span className="text-[9px] font-bold text-white">WhatsApp</span>
+                      </button>
+                      <button onClick={() => navigator.share ? navigator.share({ title: 'My Karaoke 🎤', text: 'Check this out!' }).catch(() => {}) : triggerToast('Share from gallery!')} className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl hover:opacity-90 cursor-pointer" style={{ background: 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' }}>
+                        <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                        <span className="text-[9px] font-bold text-white">Instagram</span>
+                      </button>
+                      <button onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('My karaoke 🎤')}`, '_blank')} className="flex flex-col items-center justify-center gap-1 py-3 bg-[#229ED9] rounded-2xl hover:opacity-90 cursor-pointer">
+                        <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                        <span className="text-[9px] font-bold text-white">Telegram</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            {!isExporting && (
+              <div className="mt-auto space-y-2 pt-2">
+                <button
+                  onClick={async () => {
+                    const url = exportedBlobUrl || uploadedVideoUrl;
+                    if (!url) { triggerToast('No video ready!'); return; }
+                    triggerToast('Downloading...');
+                    if (url.startsWith('blob:')) {
+                      const a = document.createElement('a'); a.href = url; a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi, '_')}_karaoke.mp4`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    } else {
+                      const resp = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '69420' } }); const blob = await resp.blob(); const blobUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = blobUrl; a.download = `karaoke.mp4`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(blobUrl);
+                    }
+                  }}
+                  className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                >
+                  <Download size={16} /> Save to Device
+                </button>
+                <button onClick={() => { setActiveTab('projects'); setProjectsTab('all'); setActiveScreen(1); }} className="w-full py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer hover:bg-slate-50">
+                  ← Back to Projects
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // MAIN RENDER
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-950 font-sans text-slate-100 flex flex-col items-center justify-between selection:bg-violet-600 selection:text-white">
-      {/* Toast Notification */}
+      {/* Toast */}
       <AnimatePresence>
         {showToast && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 20 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-4 z-50 bg-violet-600 text-white px-6 py-3 rounded-full shadow-lg font-medium border border-violet-400 flex items-center gap-2"
-          >
-            <Check size={18} />
-            <span>{toastMessage}</span>
+          <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 20 }} exit={{ opacity: 0, y: -50 }} className="fixed top-4 z-[200] bg-violet-600 text-white px-6 py-3 rounded-full shadow-lg font-medium border border-violet-400 flex items-center gap-2">
+            <Check size={18} /><span>{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Container */}
+      {/* Landing */}
       <div className="w-full max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center flex-grow">
-        
-        {/* Left Side: Mockup App Presentation */}
+        {/* Left panel */}
         <div className="lg:col-span-5 space-y-6 text-left">
           <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 px-3.5 py-1.5 rounded-full text-violet-400 text-xs font-semibold uppercase tracking-wider">
-            <Sparkles size={14} className="animate-pulse" /> Production-Level AI Video suite
+            <Sparkles size={14} className="animate-pulse" /> Production-Level AI Video Suite
           </div>
-          <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-            Karaoke<span className="text-violet-500">AI</span> Mobile
-          </h1>
-          <p className="text-slate-400 text-base leading-relaxed">
-            Transform any video into a synchronized karaoke track using advanced AI vocal separation and centisecond-level speech transcription.
-          </p>
+          <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">Karaoke<span className="text-violet-500">AI</span> Mobile</h1>
+          <p className="text-slate-400 text-base leading-relaxed">Transform any video into a synchronized karaoke track using advanced AI vocal separation and word-level speech transcription.</p>
           <div className="pt-4 flex flex-wrap gap-4">
             <button onClick={() => setAppMode('mobile')} className="px-6 py-4 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-3 shadow-lg shadow-violet-600/30 transition-all cursor-pointer">
               <Smartphone size={22} /> Mobile App Browser
@@ -321,36 +1108,21 @@ export default function App() {
               <Monitor size={22} /> Desktop Mode
             </button>
           </div>
-
-          {/* Interactive Screen Selector Control Panel */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-              <Smartphone size={16} className="text-violet-500" /> Simulator Controller
-            </h3>
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3">
+            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2"><Smartphone size={16} className="text-violet-500" /> Simulator Controller</h3>
             <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { step: 1, name: "1. Upload File" },
-                { step: 2, name: "2. AI Processing" },
-                { step: 3, name: "3. Subtitle Edit" },
-                { step: 4, name: "4. Export & Share" }
-              ].map((btn) => (
-                <button
-                  key={btn.step}
-                  onClick={() => {
-                    setActiveScreen(btn.step as any);
-                    if (btn.step !== 2) setProcessingProgress(0);
-                  }}
-                  className={`px-3 py-2.5 text-xs font-bold rounded-xl text-left border transition-all ${
-                    activeScreen === btn.step 
-                    ? 'bg-violet-600/20 text-violet-400 border-violet-500/60 shadow-inner' 
-                    : 'bg-slate-950/40 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
-                  }`}
-                >
+              {[{ step: 1, name: '1. Login / Signup' }, { step: 'projects-create', name: '2. Create Karaoke' }, { step: 'analytics', name: '3. Analytics' }, { step: 'profile', name: '4. Profile' }].map((btn: any) => (
+                <button key={btn.step} onClick={() => {
+                  if (btn.step === 'projects-create') { if (authScreen !== 'app') setAuthScreen('app'); setActiveTab('projects'); setProjectsTab('create'); setActiveScreen(1); }
+                  else if (btn.step === 'analytics') { if (authScreen !== 'app') setAuthScreen('app'); setActiveTab('analytics'); }
+                  else if (btn.step === 'profile') { if (authScreen !== 'app') setAuthScreen('app'); setActiveTab('profile'); }
+                  else { setAuthScreen('login'); }
+                  if (appMode === 'landing') setAppMode('mobile');
+                }} className="px-3 py-2.5 text-xs font-bold rounded-xl text-left border transition-all bg-slate-950/40 text-slate-400 border-slate-800 hover:border-violet-600 hover:text-slate-200">
                   {btn.name}
                 </button>
               ))}
             </div>
-
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
               <span>Whisper Beam Size: <strong className="text-violet-400">10</strong></span>
               <span>Model: <strong className="text-violet-400">Large-v3</strong></span>
@@ -358,7 +1130,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: Premium Phone/Desktop frame wrapper */}
+        {/* Phone frame */}
         <div id="app-simulator" className={appMode !== 'landing' ? "fixed inset-0 z-[100] bg-[#0c0f1e] flex flex-col items-center justify-center overflow-auto p-4" : "lg:col-span-7 flex justify-center py-4"}>
           {appMode !== 'landing' && (
             <div className="absolute top-6 left-6 z-50">
@@ -367,666 +1139,18 @@ export default function App() {
               </button>
             </div>
           )}
-          <div className={`relative ${appMode === 'desktop' ? 'w-full max-w-[1024px] h-[720px] rounded-3xl' : 'w-[360px] h-[740px] rounded-[50px] shrink-0'} bg-slate-950 border-[10px] border-slate-900 shadow-[0_0_80px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col justify-between transition-all duration-500`}>
-            {/* Phone Notch/Speaker */}
+          <div className={`relative ${appMode === 'desktop' ? 'w-full max-w-[1024px] h-[720px] rounded-3xl' : 'w-[360px] h-[740px] rounded-[50px] shrink-0'} bg-slate-950 border-[10px] border-slate-900 shadow-[0_0_80px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col transition-all duration-500`}>
+            {/* Notch */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-6 bg-slate-900 rounded-b-2xl z-40 flex justify-center items-center">
               <div className="w-16 h-1 bg-slate-950 rounded-full" />
               <div className="absolute right-4 w-2 h-2 bg-slate-950 rounded-full" />
             </div>
-
-            {/* Simulated Status Bar */}
-            <div className="h-10 bg-[#FAF9FF] text-slate-800 px-6 pt-3 flex justify-between items-center text-[10px] font-bold z-30 select-none">
-              <span>09:41</span>
-              <div className="flex items-center gap-1.5">
-                <span className="tracking-widest">LTE</span>
-                <div className="w-5 h-2.5 border border-slate-800 rounded-sm p-0.5 flex items-center">
-                  <div className="h-full w-4/5 bg-slate-800 rounded-2xs" />
-                </div>
-              </div>
-            </div>
-
-            {/* Inner Content Area */}
-            <div className="flex-grow bg-[#FAF9FF] relative overflow-hidden flex flex-col justify-between text-slate-900">
-              
-              {/* Header (Top navigation inside app) */}
-              <header className="h-14 px-4 flex justify-between items-center bg-[#FAF9FF] shrink-0">
-                <div className="flex items-center gap-2">
-                  {activeScreen > 1 && (
-                    <button 
-                      onClick={() => setActiveScreen((activeScreen - 1) as any)} 
-                      className="p-1 rounded-full hover:bg-slate-100 transition-colors"
-                    >
-                      <ChevronLeft size={18} className="text-slate-700" />
-                    </button>
-                  )}
-                  <span className="font-extrabold text-[#7C3AED] text-lg tracking-tight font-sans">KaraokeAI</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button className="text-slate-500 hover:text-slate-800">
-                    <HelpCircle size={18} />
-                  </button>
-                  <img 
-                    src={waterfallImg} 
-                    alt="Profile Avatar" 
-                    className="w-6.5 h-6.5 rounded-full object-cover border border-violet-500/20 shadow-sm"
-                  />
-                </div>
-              </header>
-
-              {/* Screens content with animate-presence transition */}
-              <div className="flex-grow px-4 pb-4 overflow-y-auto relative flex flex-col justify-start">
-                
-                {/* SCREEN 1: UPLOAD SCREEN */}
-                {activeScreen === 1 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 15 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    exit={{ opacity: 0, y: -15 }}
-                    className="flex-grow flex flex-col justify-between py-2 min-h-full"
-                  >
-                    <div className="space-y-4">
-                      <div className="text-center space-y-1 py-2">
-                        <h2 className="text-sm font-bold text-slate-700">Create New Karaoke</h2>
-                        <p className="text-[11px] text-slate-400 leading-snug px-6">
-                          {uploadMode === 'custom' 
-                            ? 'Upload a video and paste lyrics to sync them using AI.'
-                            : 'Upload a video to isolate vocals and generate lyrics using AI.'}
-                        </p>
-                      </div>
-
-                      {/* Tab Switcher */}
-                      <div className="flex bg-slate-50 p-1 rounded-xl shadow-inner mb-2">
-                        <button
-                          onClick={() => setUploadMode('auto')}
-                          className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${uploadMode === 'auto' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                          Auto Generate Lyrics
-                        </button>
-                        <button
-                          onClick={() => setUploadMode('custom')}
-                          className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${uploadMode === 'custom' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                          Provide Lyrics
-                        </button>
-                      </div>
-
-                      {uploadMode === 'custom' && (
-                        <textarea
-                          value={customLyrics}
-                          onChange={(e) => setCustomLyrics(e.target.value)}
-                          placeholder="Paste your lyrics here to align perfectly with the audio..."
-                          className="w-full h-24 p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-slate-700 placeholder-slate-400 mb-2"
-                        />
-                      )}
-
-                      {/* Drag and Drop / Selected File Card */}
-                      <input 
-                        type="file" 
-                        id="real-file-input" 
-                        accept="video/*,audio/*" 
-                        className="hidden" 
-                        onChange={(e) => { 
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            const url = URL.createObjectURL(file);
-                            handleFileSelect(file.name, url, file);
-                          }
-                        }} 
-                      />
-
-                      {selectedFile ? (
-                        <div className="w-full border border-violet-200 bg-violet-50/50 rounded-2xl p-4 flex items-center justify-between">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0">
-                              <Film size={20} />
-                            </div>
-                            <div className="truncate">
-                              <span className="text-xs font-bold text-slate-800 block truncate">{selectedFile}</span>
-                              <span className="text-[10px] text-violet-600 font-medium flex items-center gap-1">
-                                <Check size={12} /> Video Selected
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              const inputEl = document.getElementById('real-file-input');
-                              if (inputEl) inputEl.click();
-                            }}
-                            className="px-3 py-1.5 text-[11px] font-bold text-violet-600 hover:bg-violet-100 rounded-lg transition-colors shrink-0"
-                          >
-                            Change
-                          </button>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={() => {
-                            const inputEl = document.getElementById('real-file-input');
-                            if (inputEl) inputEl.click();
-                            else handleFileSelect('custom_video.mp4');
-                          }}
-                          className="w-full border-2 border-dashed border-violet-200 bg-white hover:border-violet-400 rounded-2xl py-7 px-6 flex flex-col items-center justify-center gap-3 transition-colors group cursor-pointer"
-                        >
-                          <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-105 transition-transform">
-                            <Upload size={20} />
-                          </div>
-                          <div className="text-center space-y-1">
-                            <span className="text-[12px] font-bold text-violet-600 block">Upload Video</span>
-                            <span className="text-[10px] text-slate-400 block">Drag and drop or click to browse</span>
-                          </div>
-                        </button>
-                      )}
-
-                      {/* Source Choices */}
-                      {uploadMode === 'auto' && (
-                        <div className="grid grid-cols-3 gap-2 mt-3">
-                          {[
-                            { name: "Gallery", icon: ImageIcon, file: "gallery_shot_03.mp4" },
-                            { name: "Files", icon: FolderOpen, file: "mysong2.mp4" },
-                            { name: "Camera", icon: Camera, file: "camera_capture.mp4" }
-                          ].map((src) => (
-                            <button
-                              key={src.name}
-                              onClick={() => handleFileSelect(src.file)}
-                              className="bg-white border border-slate-100 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-                            >
-                              <src.icon size={16} className="text-slate-500" />
-                              <span className="text-[10px] font-bold text-slate-600">{src.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Process Button - Pinned to bottom */}
-                    <div className="pt-4 mt-auto shrink-0">
-                      <button
-                        onClick={handleStartProcess}
-                        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
-                      >
-                        <Sparkles size={18} />
-                        <span className="text-xs tracking-wide">Process</span>
-                        <ChevronRight size={18} />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* SCREEN 2: PROGRESS / WORKFLOW */}
-                {activeScreen === 2 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 15 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    className="flex-grow flex flex-col justify-between py-2 space-y-5"
-                  >
-                    {/* Circle Loader */}
-                    <div className="flex flex-col items-center py-2 space-y-4">
-                      <div className="relative w-36 h-36 flex items-center justify-center">
-                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                          {/* Track */}
-                          <circle cx="50" cy="50" r="42" stroke="#E2E8F0" strokeWidth="8" fill="transparent" />
-                          {/* Active Indicator */}
-                          <circle 
-                            cx="50" cy="50" r="42" stroke="#7C3AED" strokeWidth="8" fill="transparent" 
-                            strokeDasharray={263.89}
-                            strokeDashoffset={263.89 - (263.89 * processingProgress) / 100}
-                            strokeLinecap="round"
-                            className="transition-all duration-150 ease-out"
-                          />
-                        </svg>
-                        <div className="absolute flex flex-col items-center justify-center">
-                          <span className="text-2xl font-black text-slate-800">{processingProgress}%</span>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Processing</span>
-                        </div>
-                      </div>
-
-                      {/* Countdown Text */}
-                      <div className="text-center">
-                        <span className="text-xs font-bold text-slate-700 block flex items-center justify-center gap-1">
-                          <Clock size={12} className="text-violet-500" /> 
-                          {Math.ceil((100 - processingProgress) * 0.45)}s remaining
-                        </span>
-                        <span className="text-[10px] text-slate-400 block">Your AI vocals are being refined</span>
-                      </div>
-                    </div>
-
-                    {/* Spectrogram Graphic */}
-                    <div className="bg-white border border-slate-100 rounded-2xl p-3.5 space-y-2">
-                      <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase">
-                        <span>Live Spectrogram</span>
-                        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" /> Active</span>
-                      </div>
-                      {/* Audio waves */}
-                      <div className="h-12 flex items-end justify-between gap-0.5 px-2">
-                        {Array.from({ length: 26 }).map((_, i) => (
-                          <motion.div
-                            key={i}
-                            animate={{
-                              height: activeScreen === 2 ? [8, Math.random() * 40 + 8, 8] : 8
-                            }}
-                            transition={{
-                              repeat: Infinity,
-                              duration: 0.8 + Math.random() * 0.5,
-                              ease: "easeInOut"
-                            }}
-                            className="w-1 bg-gradient-to-t from-violet-400 to-violet-600 rounded-full"
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Steps Status */}
-                    <div className="bg-white border border-slate-100 rounded-2xl p-3 space-y-2.5">
-                      <span className="text-[9px] font-extrabold text-violet-500 uppercase tracking-widest block">Workflow Steps</span>
-                      
-                      <div className="space-y-2 text-xs">
-                        {[
-                          { label: "Extracting Audio", status: processingProgress > 30 ? "Done" : "Active" },
-                          { label: "Speech Recognition", status: processingProgress > 60 ? "Done" : processingProgress > 30 ? "Active" : "Pending" },
-                          { label: "Word-Level Timing", status: processingProgress > 85 ? "Done" : processingProgress > 60 ? "65%" : "Pending" },
-                          { label: "Subtitle Generation", status: processingProgress === 100 ? "Done" : processingProgress > 85 ? "Active" : "Pending" }
-                        ].map((step, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-1.5 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              {step.status === "Done" ? (
-                                <CheckCircle size={14} className="text-violet-600 fill-violet-50" />
-                              ) : step.status === "Active" || step.status === "65%" ? (
-                                <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-                              ) : (
-                                <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-200" />
-                              )}
-                              <span className={`font-semibold ${step.status === "Pending" ? "text-slate-300" : "text-slate-700"}`}>{step.label}</span>
-                            </div>
-                            <span className={`text-[10px] font-bold ${step.status === "Done" ? "text-violet-600" : step.status === "Pending" ? "text-slate-300" : "text-violet-500"}`}>
-                              {step.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Cancel generation action button */}
-                    <button 
-                      onClick={() => setActiveScreen(1)}
-                      className="w-full py-2 border border-slate-200 hover:border-slate-300 rounded-xl text-center text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
-                    >
-                      Cancel Generation &times;
-                    </button>
-                  </motion.div>
-                )}
-
-                {/* SCREEN 3: PREVIEW WITH SUBTITLE OVERLAY */}
-                {activeScreen === 3 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 15 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    className="flex-grow flex flex-col justify-between py-2 space-y-4"
-                  >
-                    {/* Video Player Display Container */}
-                    <div 
-                      ref={videoContainerRef}
-                      className="relative w-full min-h-[40vh] max-h-[60vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center"
-                      style={{ isolation: 'isolate' }}
-                    >
-                      {/* Fullscreen CSS: subtitle overlay stays visible in fullscreen, completely hide native fullscreen button */}
-                      <style>{`
-                        :fullscreen .subtitle-overlay { display: flex !important; }
-                        :-webkit-full-screen .subtitle-overlay { display: flex !important; }
-                        :fullscreen video { width: 100%; height: 100%; object-fit: contain; }
-                        video::-webkit-media-controls-fullscreen-button { display: none !important; }
-                        video::-webkit-media-controls-enclosure { overflow:hidden !important; }
-                      `}</style>
-                      {uploadedVideoUrl ? (
-                        <video 
-                          ref={videoRef}
-                          src={uploadedVideoUrl} 
-                          className="w-full h-full object-contain" 
-                          autoPlay 
-                          loop 
-                          playsInline
-                          controls
-                          controlsList="nofullscreen"
-                          onTimeUpdate={() => setPlaybackTime(videoRef.current?.currentTime || 0)}
-                          onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
-                        />
-                      ) : (
-                        <img 
-                          src={waterfallImg}
-                          alt="video preview" 
-                          className="w-full h-full object-contain opacity-60" 
-                        />
-                      )}
-                      
-                      {/* Subtitle Overlay Text Box */}
-                      <div className="absolute top-6 left-0 right-0 px-6 text-center z-10">
-                        {isEditingTitle ? (
-                          <input
-                            type="text"
-                            value={videoTitle}
-                            onChange={(e) => setVideoTitle(e.target.value)}
-                            onBlur={() => setIsEditingTitle(false)}
-                            className="bg-black/60 text-white text-xs font-bold text-center py-1 px-3 rounded-full border border-violet-500 focus:outline-none w-4/5"
-                            autoFocus
-                          />
-                        ) : (
-                          <span 
-                            onClick={() => setIsEditingTitle(true)}
-                            className="bg-black/50 backdrop-blur-xs text-white text-[11px] font-semibold py-1.5 px-3 rounded-full inline-flex items-center gap-1.5 cursor-pointer hover:bg-black/70 transition-colors border border-white/10"
-                          >
-                            {videoTitle} <span className="text-[9px] bg-violet-600/80 px-1.5 py-0.5 rounded text-white font-mono uppercase">Edit</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Dynamic Real-Time Subtitle Overlay */}
-                      {activeSegment && (
-                        <div className={`subtitle-overlay absolute left-0 right-0 px-6 text-center z-10 pointer-events-none transition-all duration-75 ${
-                          subtitleStyle.alignment === 'top' ? 'top-10' : 
-                          subtitleStyle.alignment === 'middle' ? 'top-1/2 -translate-y-1/2' : 'bottom-12'
-                        }`}>
-                          <p 
-                            className="text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight" 
-                            style={{ fontSize: `${subtitleStyle.fontSize}px` }}
-                          >
-                            {activeSegment.words ? activeSegment.words.map((w: any, i: number) => (
-                              <span key={i} className={playbackTime >= w.start ? "text-violet-400 drop-shadow-[0_0_8px_rgba(124,58,237,0.8)]" : "text-white"}>
-                                {w.word}
-                              </span>
-                            )) : activeSegment.text}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Subtitle Appearance Editor (Real-Time) */}
-                    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-2xs">
-                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Subtitle Styling</span>
-                      
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                          <span>Font Size</span>
-                          <span className="text-violet-600">{subtitleStyle.fontSize}px</span>
-                        </div>
-                        <input 
-                          type="range" min="12" max="64" value={subtitleStyle.fontSize}
-                          className="w-full accent-violet-600" 
-                          onChange={(e) => setSubtitleStyle({...subtitleStyle, fontSize: parseInt(e.target.value)})}
-                        />
-                        
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-600 mt-2">
-                          <span>Alignment</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['bottom', 'middle', 'top'].map(align => (
-                            <button 
-                              key={align}
-                              onClick={() => setSubtitleStyle({...subtitleStyle, alignment: align})} 
-                              className={`py-1.5 rounded-lg text-xs font-bold shadow-sm capitalize transition-colors ${subtitleStyle.alignment === align ? 'bg-violet-50 text-violet-600 border border-violet-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                            >
-                              {align}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Core Bottom Navigation Options */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <button 
-                        onClick={() => triggerToast("Opened Subtitle Editor")}
-                        className="py-2.5 bg-white border border-slate-100 rounded-xl text-center text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-2xs"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setProcessingProgress(0);
-                          setActiveScreen(2);
-                        }}
-                        className="py-2.5 bg-white border border-slate-100 rounded-xl text-center text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-2xs"
-                      >
-                        Regenerate
-                      </button>
-                      <button 
-                        onClick={handleExport}
-                        disabled={isExporting}
-                        className={`py-2.5 text-white rounded-xl text-center text-xs font-bold shadow-md transition-all cursor-pointer ${isExporting ? 'bg-slate-400' : 'bg-violet-600 hover:bg-violet-700 shadow-violet-200'}`}
-                      >
-                        {isExporting ? 'Processing...' : 'Export'}
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* SCREEN 4: EXPORT & READY TO SHARE */}
-                {activeScreen === 4 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 15 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    className="flex-grow flex flex-col justify-between py-2 space-y-4"
-                  >
-                    <div className="space-y-4">
-                      {/* Checkmark Banner */}
-                      <div className="text-center py-2 space-y-1.5">
-                        {isExporting ? (
-                          <>
-                            <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center mx-auto shadow-2xs">
-                              <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
-                            </div>
-                            <h2 className="text-sm font-bold text-slate-800">Burning Final Subtitles...</h2>
-                            <p className="text-[10px] text-slate-400 leading-snug px-6">
-                              The backend is permanently burning your customized lyrics into the video pixels.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
-                              <Check size={20} strokeWidth={3} />
-                            </div>
-                            <h2 className="text-sm font-bold text-slate-800">Ready to Share!</h2>
-                            <p className="text-[10px] text-slate-400 leading-snug px-6">
-                              Your AI-enhanced masterpiece is processed and ready for the world.
-                            </p>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Mini Song card */}
-                      {!isExporting && (
-                        <div className="bg-white border border-slate-100 p-2.5 rounded-2xl flex items-center gap-3 shadow-2xs">
-                          {uploadedVideoUrl ? (
-                            <video src={`${uploadedVideoUrl}#t=0.1`} preload="metadata" className="w-12 h-12 object-cover rounded-lg bg-black" />
-                          ) : (
-                            <img 
-                              src={waterfallImg} 
-                              alt="Thumbnail" 
-                              className="w-12 h-12 object-cover rounded-lg"
-                            />
-                          )}
-                          <div className="flex-grow text-left">
-                            <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">
-                              {selectedFile ? selectedFile.replace(/\.[^.]+$/, '') : videoTitle}
-                            </h4>
-                            <span className="text-[9px] text-slate-400 block font-mono">
-                              {videoDuration > 0 ? formatTime(videoDuration) : '--:--'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-0.5 px-2">
-                            <div className="w-1 h-3.5 bg-violet-500 rounded-full" />
-                            <div className="w-1 h-5 bg-violet-500 rounded-full" />
-                            <div className="w-1 h-2 bg-violet-500 rounded-full" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Video configuration options */}
-                      {!isExporting && (
-                        <>
-                          <div className="bg-white border border-slate-100 p-3.5 rounded-2xl space-y-3 shadow-2xs text-left">
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Video Quality</span>
-                              <div className="grid grid-cols-2 gap-2">
-                                {(['Original', 'HD'] as const).map((q) => (
-                                  <button
-                                    key={q}
-                                    onClick={() => setSelectedQuality(q)}
-                                    className={`py-1.5 text-[11px] font-bold rounded-lg transition-colors ${
-                                      selectedQuality === q 
-                                      ? 'bg-violet-600 text-white' 
-                                      : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                                    }`}
-                                  >
-                                    {q === 'HD' ? '🎬 HD (1080p)' : '📁 Original'}
-                                  </button>
-                                ))}
-                              </div>
-                              {selectedQuality === 'HD' && (
-                                <p className="text-[9px] text-violet-500 font-semibold">⚡ Re-encodes video to 1080p on the server</p>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 pt-1">
-                              {/* File size output */}
-                              <div className="bg-slate-50 rounded-xl p-2 text-center border border-slate-100 flex items-center justify-between px-4">
-                                <span className="text-[10px] text-slate-400 font-semibold uppercase">Estimated Final Size</span>
-                                <span className="text-[12px] font-black text-violet-600 leading-tight">{getFileSize()} MB</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Share Directly To */}
-                          <div className="space-y-1.5 text-left">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Share Directly To</span>
-                            <div className="grid grid-cols-3 gap-3">
-                              {/* WhatsApp */}
-                              <button
-                                onClick={() => {
-                                  const text = encodeURIComponent(`Check out my karaoke video! 🎤`);
-                                  window.open(`https://wa.me/?text=${text}`, '_blank');
-                                }}
-                                className="flex flex-col items-center justify-center gap-1 py-3 bg-[#25D366] rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
-                              >
-                                <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                <span className="text-[9px] font-bold text-white">WhatsApp</span>
-                              </button>
-
-                              {/* Instagram */}
-                              <button
-                                onClick={() => {
-                                  if (navigator.share) {
-                                    navigator.share({ title: 'My Karaoke Video 🎤', text: 'Check out this karaoke I made with AI!' })
-                                      .catch(() => {});
-                                  } else {
-                                    triggerToast('Open Instagram and share from your gallery!');
-                                  }
-                                }}
-                                className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
-                                style={{background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)'}}
-                              >
-                                <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                                <span className="text-[9px] font-bold text-white">Instagram</span>
-                              </button>
-
-                              {/* Telegram */}
-                              <button
-                                onClick={() => {
-                                  const text = encodeURIComponent('Check out my karaoke video! 🎤');
-                                  window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${text}`, '_blank');
-                                }}
-                                className="flex flex-col items-center justify-center gap-1 py-3 bg-[#229ED9] rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
-                              >
-                                <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                <span className="text-[9px] font-bold text-white">Telegram</span>
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {!isExporting && (
-                      <div className="mt-auto space-y-2 pt-4">
-                        {/* Save to Device */}
-                        <button 
-                          onClick={async () => {
-                            const url = exportedBlobUrl || uploadedVideoUrl;
-                            if (!url) { triggerToast('No video ready to download!'); return; }
-                            triggerToast('Downloading...');
-                            // If it's already a blob URL, download directly
-                            if (url.startsWith('blob:')) {
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi,'_')}_karaoke.mp4`;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                            } else {
-                              // Fetch from ngrok with header
-                              const resp = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '69420' } });
-                              const blob = await resp.blob();
-                              const blobUrl = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = blobUrl;
-                              a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi,'_')}_karaoke.mp4`;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              URL.revokeObjectURL(blobUrl);
-                            }
-                          }}
-                          className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-200 transition-colors cursor-pointer"
-                        >
-                          <Download size={16} /> Save to Device
-                        </button>
-                        <span className="text-[9px] text-slate-400 block text-center pt-2">
-                          Export will take approximately 15 seconds.
-                        </span>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-
-              </div>
-
-              {/* Bottom Tab Bar (Only visible inside phone canvas) */}
-              <footer className="h-14 bg-white border-t border-slate-100 px-3 flex justify-between items-center shrink-0 select-none">
-                {[
-                  { name: "Home", icon: Tv, screen: 1 },
-                  { name: "Projects", icon: Film, screen: 3 },
-                  { name: "Create", icon: Clock, screen: 1, active: true },
-                  { name: "Analytics", icon: Volume2, screen: 2 },
-                  { name: "Profile", icon: Share2, screen: 4 }
-                ].map((tab, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      if (tab.screen) {
-                        setActiveScreen(tab.screen as any);
-                        if (tab.screen !== 2) setProcessingProgress(0);
-                      }
-                    }}
-                    className="flex flex-col items-center justify-center gap-0.5 w-12 cursor-pointer"
-                  >
-                    <tab.icon 
-                      size={16} 
-                      className={tab.active || (tab.name === "Create" && activeScreen === 1) ? "text-violet-600" : "text-slate-400 hover:text-slate-600"} 
-                      strokeWidth={tab.active ? 2.5 : 2}
-                    />
-                    <span className={`text-[8px] font-bold ${
-                      tab.active || (tab.name === "Create" && activeScreen === 1) ? "text-violet-600" : "text-slate-400"
-                    }`}>
-                      {tab.name}
-                    </span>
-                  </button>
-                ))}
-              </footer>
-
-            </div>
+            {renderPhoneContent()}
           </div>
         </div>
-
       </div>
 
-      {/* Footer Branding */}
+      {/* Footer */}
       <div className="w-full max-w-7xl mx-auto px-4 py-6 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
         <span>Developed with React, Vite &amp; Tailwind CSS</span>
         <div className="flex gap-4">
