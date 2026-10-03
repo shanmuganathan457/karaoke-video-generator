@@ -57,18 +57,29 @@ def align_with_aeneas(audio_path: str, lyrics_text: str) -> list:
     # For Tamil/non-Latin, use l=ita or leave language detection (l=auto is not always supported)
     task_config = "task_language=eng|os_task_file_format=json|is_text_type=plain"
     
-    cmd = [
-        "python", "-m", "aeneas.tools.execute_task",
-        audio_path,
-        lyrics_file,
-        task_config,
-        output_json
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    
-    if result.returncode != 0:
-        raise RuntimeError(f"aeneas failed: {result.stderr}")
+    # Try direct Python API first, fallback to sys.executable CLI
+    try:
+        from aeneas.executetask import ExecuteTask
+        from aeneas.task import Task
+
+        task = Task(config_string=task_config)
+        task.audio_file_path_absolute = audio_path
+        task.text_file_path_absolute = lyrics_file
+        task.sync_map_file_path_absolute = output_json
+
+        ExecuteTask(task).execute()
+        task.output_sync_map_file()
+    except Exception as py_err:
+        cmd = [
+            sys.executable, "-m", "aeneas.tools.execute_task",
+            audio_path,
+            lyrics_file,
+            task_config,
+            output_json
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise RuntimeError(f"aeneas failed: {result.stderr or str(py_err)}")
     
     with open(output_json, "r", encoding="utf-8") as f:
         aeneas_data = json.load(f)
