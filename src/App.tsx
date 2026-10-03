@@ -539,8 +539,15 @@ export default function App() {
                      setIsDownloadingLink(false);
                      return;
                   }
-                  setDownloadedLinkVideo(apiBaseUrl + data.video_url);
-                  triggerToast('Video downloaded successfully!');
+                  // Fetch as blob so the <video> tag can play it (ngrok blocks direct video requests)
+                  triggerToast('Download complete! Loading video...');
+                  const videoRes = await fetch(apiBaseUrl + data.video_url, {
+                    headers: { 'ngrok-skip-browser-warning': '69420' }
+                  });
+                  const blob = await videoRes.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  setDownloadedLinkVideo(blobUrl);
+                  triggerToast('Video ready!');
                 } else {
                   triggerToast('Failed to download video.');
                 }
@@ -561,23 +568,33 @@ export default function App() {
         </div>
         
         {downloadedLinkVideo ? (
-          <div className="mt-3 relative rounded-xl overflow-hidden border border-slate-200 bg-black aspect-video flex items-center justify-center group">
-             <video src={downloadedLinkVideo} controls className="w-full h-full object-cover opacity-60" />
-             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none group-hover:opacity-100 transition-opacity">
-               <span className="text-[10px] text-white font-bold px-2 py-1 bg-black/60 rounded-full">Downloaded Video</span>
-               <button 
-                 onClick={(e) => {
-                   e.preventDefault();
-                   setActiveTab('create');
-                   setActiveScreen(1);
-                   handleFileSelect("Downloaded_Video.mp4", downloadedLinkVideo);
-                 }}
-                 className="bg-violet-600 text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-violet-700 cursor-pointer pointer-events-auto"
-               >
-                 Use in Karaoke
-               </button>
-             </div>
-             <button onClick={() => { setDownloadedLinkVideo(null); setLinkInput(''); }} className="absolute top-2 right-2 w-6 h-6 bg-black/70 rounded-full text-white flex items-center justify-center hover:bg-black/90 cursor-pointer text-xs z-10">&times;</button>
+          <div className="mt-3 space-y-2">
+            <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-black">
+              <video src={downloadedLinkVideo} controls className="w-full rounded-xl" style={{maxHeight: '180px'}} />
+              <button 
+                onClick={() => { setDownloadedLinkVideo(null); setLinkInput(''); }} 
+                className="absolute top-2 right-2 w-6 h-6 bg-black/70 rounded-full text-white flex items-center justify-center hover:bg-black/90 cursor-pointer text-xs z-10"
+              >&times;</button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setActiveTab('create');
+                  setActiveScreen(1);
+                  handleFileSelect("Downloaded_Video.mp4", downloadedLinkVideo);
+                }}
+                className="flex-grow bg-violet-600 text-white text-xs font-bold py-2 rounded-xl shadow cursor-pointer hover:bg-violet-700 flex items-center justify-center gap-1.5"
+              >
+                <Sparkles size={13} /> Use in Karaoke
+              </button>
+              <a
+                href={downloadedLinkVideo}
+                download="downloaded_video.mp4"
+                className="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl cursor-pointer hover:bg-slate-200 flex items-center gap-1.5"
+              >
+                <Download size={13} /> Save
+              </a>
+            </div>
           </div>
         ) : (
           <p className="text-[9px] text-slate-400 leading-snug">Download videos directly from social links (YouTube, Instagram) to use in karaoke.</p>
