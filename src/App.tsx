@@ -192,12 +192,6 @@ export default function App() {
     return base.toFixed(1);
   };
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
   const handleExport = async () => {
     if (!jobId) return;
     setIsExporting(true);
@@ -558,11 +552,13 @@ export default function App() {
                       className="relative w-full min-h-[40vh] max-h-[60vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center"
                       style={{ isolation: 'isolate' }}
                     >
-                      {/* Fullscreen CSS: subtitle overlay stays visible in fullscreen */}
+                      {/* Fullscreen CSS: subtitle overlay stays visible in fullscreen, completely hide native fullscreen button */}
                       <style>{`
                         :fullscreen .subtitle-overlay { display: flex !important; }
                         :-webkit-full-screen .subtitle-overlay { display: flex !important; }
                         :fullscreen video { width: 100%; height: 100%; object-fit: contain; }
+                        video::-webkit-media-controls-fullscreen-button { display: none !important; }
+                        video::-webkit-media-controls-enclosure { overflow:hidden !important; }
                       `}</style>
                       {uploadedVideoUrl ? (
                         <video 
@@ -885,11 +881,11 @@ export default function App() {
                         >
                           <Download size={16} /> Save to Device
                         </button>
+                        <span className="text-[9px] text-slate-400 block text-center pt-2">
+                          Export will take approximately 15 seconds.
+                        </span>
                       </div>
-                    )}                   <span className="text-[9px] text-slate-400 block text-center">
-                        Export will take approximately 15 seconds.
-                      </span>
-                    </div>
+                    )}
                   </motion.div>
                 )}
 
