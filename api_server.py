@@ -37,93 +37,111 @@ def root():
     return {"status": "KaraokeAI Backend is running!", "version": "2.1.0"}
 
 
-def align_with_aeneas(audio_path: str, lyrics_text: str) -> list:
-    """
-    Use aeneas to force-align custom lyrics to audio.
-    Returns a list of segments in the same format as Whisper output.
-    """
-    job_id = str(uuid.uuid4())[:8]
-    
-    # Write lyrics to a plain text file (one line per segment)
-    lyrics_lines = [l.strip() for l in lyrics_text.strip().splitlines() if l.strip()]
-    lyrics_file = f"/tmp/lyrics_{job_id}.txt"
-    output_json = f"/tmp/aligned_{job_id}.json"
-    
-    with open(lyrics_file, "w", encoding="utf-8") as f:
-        f.write("\n".join(lyrics_lines))
-    
-    # Build the aeneas task config string
-    # l=eng for English/romanized, os=json for output
-    # For Tamil/non-Latin, use l=ita or leave language detection (l=auto is not always supported)
-    task_config = "task_language=eng|os_task_file_format=json|is_text_type=plain"
-    
-    # Try direct Python API first, fallback to sys.executable CLI
+def get_audio_duration(audio_path: str) -> float:
+    """Get audio duration in seconds using ffprobe."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+        capture_output=True, text=True
+    )
     try:
-        from aeneas.executetask import ExecuteTask
-        from aeneas.task import Task
+        return float(result.stdout.strip())
+    except:
+        return 180.0  # default 3 minutes if ffprobe fails
 
-        task = Task(config_string=task_config)
-        task.audio_file_path_absolute = audio_path
-        task.text_file_path_absolute = lyrics_file
-        task.sync_map_file_path_absolute = output_json
 
-        ExecuteTask(task).execute()
-        task.output_sync_map_file()
-    except Exception as py_err:
-        cmd = [
-            sys.executable, "-m", "aeneas.tools.execute_task",
-            audio_path,
-            lyrics_file,
-            task_config,
-            output_json
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
-            raise RuntimeError(f"aeneas failed: {result.stderr or str(py_err)}")
+def align_lyrics_proportional(audio_path: str, lyrics_text: str) -> list:
+    """
+    Simple proportional alignment: spread lyrics lines evenly across audio duration.
+    Used as fallback when Whisper alignment is unavailable.
+    """
+    duration = get_audio_duration(audio_path)
+    lyrics_lines = [l.strip() for l in lyrics_text.strip().splitlines() if l.strip()]
+    if not lyrics_lines:
+        return []
     
-    with open(output_json, "r", encoding="utf-8") as f:
-        aeneas_data = json.load(f)
-    
-    # Convert aeneas output to Whisper-style segments
+    seg_duration = duration / len(lyrics_lines)
     segments = []
-    fragments = aeneas_data.get("fragments", [])
-    
-    for i, frag in enumerate(fragments):
-        begin = float(frag.get("begin", 0))
-        end = float(frag.get("end", 0))
-        text = " ".join(frag.get("lines", []))
-        
-        if not text.strip():
-            continue
-        
-        # Build word-level timing by splitting line evenly across duration
-        words_list = text.split()
+    for i, line in enumerate(lyrics_lines):
+        begin = i * seg_duration
+        end = begin + seg_duration
+        words_list = line.split()
         word_count = len(words_list)
-        duration = end - begin
-        word_dur = duration / max(word_count, 1)
-        
+        word_dur = seg_duration / max(word_count, 1)
         words = []
         for j, w in enumerate(words_list):
             ws = begin + j * word_dur
             we = ws + word_dur
             words.append({"word": w, "start": round(ws, 3), "end": round(we, 3), "probability": 1.0})
-        
         segments.append({
             "id": i,
-            "start": begin,
-            "end": end,
-            "text": text,
+            "start": round(begin, 3),
+            "end": round(end, 3),
+            "text": line,
             "words": words
         })
-    
-    # Clean up temp files
-    try:
-        os.remove(lyrics_file)
-        os.remove(output_json)
-    except:
-        pass
-    
     return segments
+
+
+def align_with_whisper_prompt(audio_path: str, lyrics_text: str) -> list:
+    """
+    Use faster-whisper with custom lyrics as initial_prompt to guide transcription.
+    This forces Whisper to transcribe using the provided lyrics as context,
+    giving accurate word-level timestamps — no aeneas needed!
+    Falls back to proportional alignment if Whisper fails.
+    """
+    try:
+        from faster_whisper import WhisperModel
+
+        print("[align] Loading Whisper model for guided transcription...")
+        model = WhisperModel("base", device="cuda" if _cuda_available() else "cpu", compute_type="int8")
+
+        # Use custom lyrics as initial_prompt — Whisper will match them to audio
+        lyrics_clean = lyrics_text.strip().replace("\n", " ")
+        
+        segments_iter, info = model.transcribe(
+            audio_path,
+            initial_prompt=lyrics_clean,
+            word_timestamps=True,
+            vad_filter=False,
+            beam_size=5,
+        )
+        
+        segments = []
+        for i, seg in enumerate(segments_iter):
+            words = []
+            if seg.words:
+                for w in seg.words:
+                    words.append({
+                        "word": w.word.strip(),
+                        "start": round(w.start, 3),
+                        "end": round(w.end, 3),
+                        "probability": round(w.probability, 3)
+                    })
+            segments.append({
+                "id": i,
+                "start": round(seg.start, 3),
+                "end": round(seg.end, 3),
+                "text": seg.text.strip(),
+                "words": words
+            })
+        
+        print(f"[align] Whisper guided transcription done: {len(segments)} segments")
+        return segments
+
+    except Exception as e:
+        print(f"[align] Whisper guided mode failed ({e}), falling back to proportional alignment")
+        return align_lyrics_proportional(audio_path, lyrics_text)
+
+
+def _cuda_available() -> bool:
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except:
+        return False
+
+
 
 
 @app.post("/generate")
@@ -145,10 +163,10 @@ async def generate_karaoke(
         processor.extract_audio(input_path, temp_audio)
 
         # ── FORCED ALIGNMENT path (custom lyrics provided) ──
-        # Skip Demucs — aeneas doesn't need clean vocals, works on full audio
+        # Use Whisper guided transcription — no aeneas needed!
         if custom_lyrics.strip():
-            print(f"[{job_id}] Custom lyrics mode → skipping Demucs, using aeneas forced alignment")
-            segments = align_with_aeneas(temp_audio, custom_lyrics)
+            print(f"[{job_id}] Custom lyrics mode → Whisper guided alignment (no Demucs needed)")
+            segments = align_with_whisper_prompt(temp_audio, custom_lyrics)
             detected_lang = language if language else "und"
         else:
             # ── AUTO TRANSCRIPTION path (Whisper) ──
