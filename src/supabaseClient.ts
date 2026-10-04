@@ -6,11 +6,13 @@ import { createClient } from '@supabase/supabase-js';
 //   VITE_SUPABASE_ANON_KEY=your-anon-key-here
 // ───────────────────────────────────────────────────────────────────────────
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
+// Initialize client safely so it doesn't crash (white screen) if env vars are missing on Vercel
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : ({} as any);
 // ── Database Types ──────────────────────────────────────────────────────────
 export interface DbProject {
   id: string;
