@@ -874,22 +874,8 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="flex bg-slate-50 p-1 rounded-xl shadow-inner">
-                {(['auto', 'custom'] as const).map(m => (
-                  <button key={m} onClick={() => setUploadMode(m)} className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${uploadMode === m ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                    {m === 'auto' ? 'Auto Generate Lyrics' : 'Provide Lyrics'}
-                  </button>
-                ))}
-              </div>
-
-              {uploadMode === 'custom' && (
-                <textarea
-                  value={customLyrics}
-                  onChange={e => setCustomLyrics(e.target.value)}
-                  placeholder="Paste your lyrics here to align perfectly with the audio..."
-                  className="w-full h-24 p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none text-slate-700 placeholder-slate-400"
-                />
-              )}
+              {/* Custom lyrics tab hidden for fast deployment */}
+              {/* uploadMode is kept as 'auto' */}
 
               <input
                 type="file" id="real-file-input" accept="video/*,audio/*" className="hidden"
