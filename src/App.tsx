@@ -93,6 +93,7 @@ export default function App() {
   useEffect(() => {
     const initSupabase = async () => {
       try {
+        if (!supabase.auth) throw new Error("Supabase auth not initialized");
         const { data: { session } } = await supabase.auth.getSession();
         setSupabaseReady(true);
         if (session?.user) {
@@ -108,6 +109,8 @@ export default function App() {
       }
     };
     initSupabase();
+
+    if (!supabase.auth) return;
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
