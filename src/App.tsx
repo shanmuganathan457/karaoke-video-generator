@@ -21,6 +21,9 @@ interface Project {
   processingTime: number; // seconds
   status: 'done';
   thumbnail?: string;
+  videoUrl?: string;
+  jobId?: string;
+  segments?: any[];
 }
 
 interface UserData {
@@ -247,8 +250,27 @@ export default function App() {
       mode: uploadMode,
       processingTime: elapsed,
       status: 'done',
+      videoUrl: uploadedVideoUrl || undefined,
+      jobId: jobId || undefined,
+      segments: segments || [],
     };
     setProjects(prev => [proj, ...prev]);
+  };
+
+  const openProject = (proj: Project) => {
+    setVideoTitle(proj.title);
+    if (proj.videoUrl) {
+      setUploadedVideoUrl(proj.videoUrl);
+    }
+    if (proj.jobId) {
+      setJobId(proj.jobId);
+    }
+    if (proj.segments) {
+      setSegments(proj.segments);
+    }
+    setActiveTab('create');
+    setActiveScreen(3);
+    triggerToast(`Opened: ${proj.title}`);
   };
 
   const handleExport = async () => {
@@ -684,15 +706,22 @@ export default function App() {
         ) : projectsView === 'list' ? (
           <div className="space-y-2 pt-2">
             {projects.map(p => (
-              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-                  <Music size={18} className="text-violet-600" />
+              <div 
+                key={p.id} 
+                onClick={() => openProject(p)}
+                className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm hover:border-violet-200 transition-all cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-600 transition-colors">
+                  <Play size={18} className="text-violet-600 group-hover:text-white transition-colors" fill="currentColor" />
                 </div>
                 <div className="flex-grow min-w-0">
                   <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
                   <p className="text-[10px] text-slate-400">{p.date} · {p.duration} · {formatDuration(p.processingTime)}</p>
                 </div>
-                <button onClick={() => triggerToast('Options opened')} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }} 
+                  className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
                   <MoreVertical size={16} />
                 </button>
               </div>
@@ -701,16 +730,20 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 gap-3 pt-2">
             {projects.map(p => (
-              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
+              <div 
+                key={p.id} 
+                onClick={() => openProject(p)}
+                className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative hover:border-violet-200 transition-all cursor-pointer group"
+              >
                 <div className="relative">
                   <button
-                    onClick={() => setActiveMenuId(activeMenuId === p.id ? null : p.id)}
+                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
                     className="absolute top-1 right-1 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 cursor-pointer z-10"
                   >
                     <MoreVertical size={16} />
                   </button>
                   {activeMenuId === p.id && (
-                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20">
+                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => toggleFavorite(p.id)}
                         className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
@@ -726,8 +759,8 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
-                    <Music size={22} className="text-violet-500" />
+                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center group-hover:from-violet-600 group-hover:to-indigo-600 transition-all">
+                    <Play size={22} className="text-violet-500 group-hover:text-white transition-colors" fill="currentColor" />
                   </div>
                 </div>
                 <div>
@@ -761,16 +794,20 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 gap-3 pt-2">
             {favProjects.map(p => (
-              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
+              <div 
+                key={p.id} 
+                onClick={() => openProject(p)}
+                className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative hover:border-violet-200 transition-all cursor-pointer group"
+              >
                 <div className="relative">
                   <button
-                    onClick={() => setActiveMenuId(activeMenuId === p.id ? null : p.id)}
+                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
                     className="absolute top-1 right-1 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 cursor-pointer z-10"
                   >
                     <MoreVertical size={16} />
                   </button>
                   {activeMenuId === p.id && (
-                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20">
+                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => toggleFavorite(p.id)}
                         className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
@@ -786,8 +823,8 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
-                    <Music size={22} className="text-violet-500" />
+                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center group-hover:from-violet-600 group-hover:to-indigo-600 transition-all">
+                    <Play size={22} className="text-violet-500 group-hover:text-white transition-colors" fill="currentColor" />
                   </div>
                 </div>
                 <div>
