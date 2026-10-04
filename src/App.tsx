@@ -76,7 +76,20 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ── Check Supabase session on mount ─────────────────────────────
+  // ── Check Supabase session & fetch projects ─────────────────────
+  const fetchProjects = async (userId: string) => {
+    if (!supabaseReady) return;
+    const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (data && !error) {
+      setProjects(data.map((p: any) => ({
+        id: p.id, title: p.title, date: p.date, duration: p.duration,
+        mode: p.mode, processingTime: p.processing_time, status: p.status,
+        videoUrl: p.video_url, jobId: p.job_id, segments: p.segments
+      })));
+      setFavoriteIds(data.filter((p: any) => p.is_favorite).map((p: any) => p.id));
+    }
+  };
+
   useEffect(() => {
     const initSupabase = async () => {
       try {
@@ -88,9 +101,9 @@ export default function App() {
           setProfileName(name);
           setProfileEmail(session.user.email || '');
           setAuthScreen('app');
+          fetchProjects(session.user.id);
         }
       } catch {
-        // Supabase credentials not yet configured — run in local mode
         setSupabaseReady(false);
       }
     };
@@ -103,12 +116,13 @@ export default function App() {
         setProfileName(name);
         setProfileEmail(session.user.email || '');
         setAuthScreen('app');
+        fetchProjects(session.user.id);
       } else if (_event === 'SIGNED_OUT') {
         setAuthScreen('login');
       }
     });
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [supabaseReady]);
 
   // ── Modals & Viewers ────────────────────────────────────────
   const [fullVideoModal, setFullVideoModal] = useState<Project | null>(null);
@@ -125,18 +139,24 @@ export default function App() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>(['p1']);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  const toggleFavorite = (id: string) => {
-    setFavoriteIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
-    triggerToast(favoriteIds.includes(id) ? 'Removed from Favorites' : 'Added to Favorites');
+  const toggleFavorite = async (id: string) => {
+    const isFav = favoriteIds.includes(id);
+    const newIsFav = !isFav;
+    setFavoriteIds(prev => newIsFav ? [...prev, id] : prev.filter(item => item !== id));
+    triggerToast(newIsFav ? 'Added to Favorites' : 'Removed from Favorites');
+    if (supabaseReady) {
+      await supabase.from('projects').update({ is_favorite: newIsFav }).eq('id', id);
+    }
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
     setProjects(prev => prev.filter(p => p.id !== id));
     setFavoriteIds(prev => prev.filter(itemId => itemId !== id));
     triggerToast('Project deleted');
     setActiveMenuId(null);
+    if (supabaseReady) {
+      await supabase.from('projects').delete().eq('id', id);
+    }
   };
 
   // ── Karaoke creation flow ─────────────────────────────────────
@@ -295,8 +315,9 @@ export default function App() {
   };
 
   const finishProject = (elapsed: number) => {
+    const projId = crypto.randomUUID ? crypto.randomUUID() : `p${Date.now()}`;
     const proj: Project = {
-      id: `p${Date.now()}`,
+      id: projId,
       title: videoTitle || selectedFile?.replace(/\.[^.]+$/, '') || 'Untitled',
       date: now(),
       duration: videoDuration > 0 ? formatTime(videoDuration) : '--:--',
@@ -308,6 +329,26 @@ export default function App() {
       segments: segments || [],
     };
     setProjects(prev => [proj, ...prev]);
+
+    if (supabaseReady) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase.from('projects').insert({
+            id: projId,
+            user_id: user.id,
+            title: proj.title,
+            date: proj.date,
+            duration: proj.duration,
+            mode: proj.mode,
+            processing_time: proj.processingTime,
+            status: proj.status,
+            video_url: proj.videoUrl,
+            job_id: proj.jobId,
+            segments: proj.segments
+          }).then();
+        }
+      });
+    }
   };
 
   const openProject = (proj: Project) => {
@@ -1539,8 +1580,12 @@ export default function App() {
                 <button
                   onClick={() => {
                     if (editTitleInput.trim() !== '') {
-                      setProjects(prev => prev.map(p => p.id === showEditModal.id ? { ...p, title: editTitleInput.trim() } : p));
+                      const newTitle = editTitleInput.trim();
+                      setProjects(prev => prev.map(p => p.id === showEditModal.id ? { ...p, title: newTitle } : p));
                       triggerToast('Project title updated!');
+                      if (supabaseReady) {
+                        supabase.from('projects').update({ title: newTitle }).eq('id', showEditModal.id).then();
+                      }
                     }
                     setShowEditModal(null);
                   }}
