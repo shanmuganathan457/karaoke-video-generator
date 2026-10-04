@@ -63,9 +63,25 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'projects' | 'create' | 'favorites' | 'profile'>('home');
   const [appMode, setAppMode] = useState<'landing' | 'mobile' | 'desktop'>('landing');
 
-  // ── Projects ──────────────────────────────────────────────────
+  // ── Projects & Favorites ─────────────────────────────────────
   const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS);
   const [projectsView, setProjectsView] = useState<'list' | 'cards'>('list');
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(['p1']);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  const toggleFavorite = (id: string) => {
+    setFavoriteIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+    triggerToast(favoriteIds.includes(id) ? 'Removed from Favorites' : 'Added to Favorites');
+  };
+
+  const deleteProject = (id: string) => {
+    setProjects(prev => prev.filter(p => p.id !== id));
+    setFavoriteIds(prev => prev.filter(itemId => itemId !== id));
+    triggerToast('Project deleted');
+    setActiveMenuId(null);
+  };
 
   // ── Karaoke creation flow ─────────────────────────────────────
   const [activeScreen, setActiveScreen] = useState<1 | 2 | 3 | 4>(1);
@@ -685,15 +701,40 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 gap-3 pt-2">
             {projects.map(p => (
-              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm">
-                <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
-                  <Music size={22} className="text-violet-500" />
+              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
+                <div className="relative">
+                  <button
+                    onClick={() => setActiveMenuId(activeMenuId === p.id ? null : p.id)}
+                    className="absolute top-1 right-1 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 cursor-pointer z-10"
+                  >
+                    <MoreVertical size={16} />
+                  </button>
+                  {activeMenuId === p.id && (
+                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20">
+                      <button
+                        onClick={() => toggleFavorite(p.id)}
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Heart size={13} className={favoriteIds.includes(p.id) ? 'fill-red-500 text-red-500' : ''} />
+                        {favoriteIds.includes(p.id) ? 'Unfavorite' : 'Favorite'}
+                      </button>
+                      <button
+                        onClick={() => deleteProject(p.id)}
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                    <Music size={22} className="text-violet-500" />
+                  </div>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold text-slate-800 truncate">{p.title}</p>
+                  <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
                   <p className="text-[9px] text-slate-400">{p.date}</p>
                 </div>
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-block ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
                   {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
                 </span>
               </div>
@@ -705,38 +746,64 @@ export default function App() {
   );
 
   // ── FAVORITES TAB ────────────────────────────────────────────
-  const renderFavorites = () => (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
-      <h2 className="text-sm font-black text-slate-800">Favorite Videos</h2>
-      
-      {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
-          <Heart size={36} className="opacity-30" />
-          <p className="text-xs text-center">No favorites yet.<br />Like a project to see it here!</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 pt-2">
-          {projects.map(p => (
-            <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
-              <button onClick={() => triggerToast('Removed from favorites')} className="absolute top-3 right-3 p-1.5 bg-white/80 backdrop-blur rounded-full shadow-sm text-red-500 hover:text-slate-400 z-10 cursor-pointer">
-                <Heart size={14} className="fill-red-500" />
-              </button>
-              <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
-                <Music size={22} className="text-violet-500" />
+  const renderFavorites = () => {
+    const favProjects = projects.filter(p => favoriteIds.includes(p.id));
+
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
+        <h2 className="text-sm font-black text-slate-800">Favorite Videos</h2>
+        
+        {favProjects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
+            <Heart size={36} className="opacity-30" />
+            <p className="text-xs text-center">No favorites yet.<br />Like a project to see it here!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 pt-2">
+            {favProjects.map(p => (
+              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
+                <div className="relative">
+                  <button
+                    onClick={() => setActiveMenuId(activeMenuId === p.id ? null : p.id)}
+                    className="absolute top-1 right-1 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 cursor-pointer z-10"
+                  >
+                    <MoreVertical size={16} />
+                  </button>
+                  {activeMenuId === p.id && (
+                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20">
+                      <button
+                        onClick={() => toggleFavorite(p.id)}
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Heart size={13} className="fill-red-500 text-red-500" />
+                        Unfavorite
+                      </button>
+                      <button
+                        onClick={() => deleteProject(p.id)}
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                    <Music size={22} className="text-violet-500" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
+                  <p className="text-[9px] text-slate-400">{p.date}</p>
+                </div>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-block ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                  {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
+                </span>
               </div>
-              <div>
-                <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
-                <p className="text-[9px] text-slate-400">{p.date}</p>
-              </div>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-block ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </motion.div>
-  );
+            ))}
+          </div>
+        )}
+      </motion.div>
+    );
+  };
 
   // ── PROFILE TAB ──────────────────────────────────────────────
   const renderProfile = () => (
