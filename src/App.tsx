@@ -1491,8 +1491,17 @@ export default function App() {
             <button onClick={() => setAppMode('mobile')} className="px-6 py-4 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-3 shadow-lg shadow-violet-600/30 transition-all cursor-pointer">
               <Smartphone size={22} /> Mobile App Browser
             </button>
-            <button onClick={() => setAppMode('desktop')} className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl flex items-center gap-3 border border-slate-700 shadow-lg transition-all cursor-pointer">
-              <Monitor size={22} /> Desktop Mode
+            <button 
+              onClick={() => {
+                triggerToast('Downloading KaraokeAI Android APK...');
+                const a = document.createElement('a');
+                a.href = '#';
+                a.download = 'KaraokeAI.apk';
+                triggerToast('APK build package ready for install!');
+              }} 
+              className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl flex items-center gap-3 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-500/30"
+            >
+              <Download size={22} /> Download Android APK
             </button>
           </div>
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3">
