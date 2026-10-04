@@ -683,27 +683,19 @@ export default function App() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 gap-3 pt-2">
             {projects.map(p => (
-              <div key={p.id} className="bg-white border border-slate-100 rounded-2xl p-2.5 space-y-2 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                <div className="relative w-full h-24 rounded-xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 flex items-center justify-center overflow-hidden shadow-inner">
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
-                  <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
-                    <Play size={16} fill="white" className="ml-0.5" />
-                  </div>
-                  <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/60 backdrop-blur-md text-white font-mono text-[9px] font-bold rounded-md">
-                    {p.duration}
-                  </span>
+              <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm">
+                <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                  <Music size={22} className="text-violet-500" />
                 </div>
-                <div className="px-0.5">
-                  <p className="text-[11px] font-extrabold text-slate-800 truncate">{p.title}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-[9px] font-medium text-slate-400">{p.date}</p>
-                    <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 border border-violet-100">
-                      ⚡ Auto
-                    </span>
-                  </div>
+                <div>
+                  <p className="text-[11px] font-bold text-slate-800 truncate">{p.title}</p>
+                  <p className="text-[9px] text-slate-400">{p.date}</p>
                 </div>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                  {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
+                </span>
               </div>
             ))}
           </div>
@@ -723,33 +715,22 @@ export default function App() {
           <p className="text-xs text-center">No favorites yet.<br />Like a project to see it here!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-2 gap-2.5 pt-2">
           {projects.map(p => (
-            <div key={p.id} className="bg-white border border-slate-100 rounded-2xl p-2.5 space-y-2 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-              <button 
-                onClick={() => triggerToast('Removed from favorites')} 
-                className="absolute top-4 right-4 z-20 w-7 h-7 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 transition-all cursor-pointer shadow-md"
-              >
-                <Heart size={13} fill="currentColor" />
+            <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
+              <button onClick={() => triggerToast('Removed from favorites')} className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow-sm text-red-500 hover:text-slate-400 z-10 cursor-pointer">
+                <Heart size={14} className="fill-red-500" />
               </button>
-              <div className="relative w-full h-24 rounded-xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 flex items-center justify-center overflow-hidden shadow-inner">
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
-                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
-                  <Play size={16} fill="white" className="ml-0.5" />
-                </div>
-                <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/60 backdrop-blur-md text-white font-mono text-[9px] font-bold rounded-md">
-                  {p.duration}
-                </span>
+              <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                <Music size={22} className="text-violet-500" />
               </div>
-              <div className="px-0.5">
-                <p className="text-[11px] font-extrabold text-slate-800 truncate pr-2">{p.title}</p>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-[9px] font-medium text-slate-400">{p.date}</p>
-                  <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 border border-violet-100">
-                    ⚡ Auto
-                  </span>
-                </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
+                <p className="text-[9px] text-slate-400">{p.date}</p>
               </div>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
+              </span>
             </div>
           ))}
         </div>
