@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="30" fill="#7C3AED"/>
+  <!-- Microphone head (angled) -->
+  <circle cx="58" cy="42" r="14" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+  <!-- Microphone handle (angled) -->
+  <path d="M48 52 L36 64 C34 66 32 66 32 64 L36 60" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+  <line x1="48.1" y1="51.9" x2="35.5" y2="64.5" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+  <!-- Cord line at the bottom -->
+  <path d="M36 68 C 36 74, 46 70, 52 74 C 55 76, 59 74, 59 74" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
