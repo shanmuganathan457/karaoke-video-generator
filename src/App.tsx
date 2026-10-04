@@ -5,9 +5,11 @@ import {
   Sparkles, Download, Share2, Tv, CheckCircle, Clock, Film, FileText,
   Smartphone, Cpu, ArrowRight, Monitor, Home, BarChart2, User, Plus,
   LayoutGrid, List, LogOut, Mail, Lock, Eye, EyeOff, Mic2, Music,
-  TrendingUp, Zap, Settings, Edit3, Key, MoreVertical, Heart, Link as LinkIcon, PlusCircle
+  TrendingUp, Zap, Settings, Edit3, Key, MoreVertical, Heart, Link as LinkIcon, PlusCircle,
+  Database, Wifi
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { supabase } from './supabaseClient';
 // @ts-ignore
 import waterfallImg from './waterfall.png';
 
@@ -54,6 +56,8 @@ const SEED_PROJECTS: Project[] = [
 export default function App() {
   // ── Auth & Session ───────────────────────────────────────────
   const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'app'>('login');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [supabaseReady, setSupabaseReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
@@ -70,6 +74,40 @@ export default function App() {
       setShowSplash(false);
     }, 2200);
     return () => clearTimeout(timer);
+  }, []);
+
+  // ── Check Supabase session on mount ─────────────────────────────
+  useEffect(() => {
+    const initSupabase = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSupabaseReady(true);
+        if (session?.user) {
+          const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+          setUserData({ name, email: session.user.email || '' });
+          setProfileName(name);
+          setProfileEmail(session.user.email || '');
+          setAuthScreen('app');
+        }
+      } catch {
+        // Supabase credentials not yet configured — run in local mode
+        setSupabaseReady(false);
+      }
+    };
+    initSupabase();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+        setUserData({ name, email: session.user.email || '' });
+        setProfileName(name);
+        setProfileEmail(session.user.email || '');
+        setAuthScreen('app');
+      } else if (_event === 'SIGNED_OUT') {
+        setAuthScreen('login');
+      }
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   // ── Modals & Viewers ────────────────────────────────────────
@@ -336,19 +374,61 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────
   // Auth Screens
   // ─────────────────────────────────────────────────────────────
-  const handleLogin = () => {
-    if (!loginEmail || !loginPass) { triggerToast("Please fill in all fields"); return; }
-    setUserData({ name: loginEmail.split('@')[0], email: loginEmail });
-    setProfileName(loginEmail.split('@')[0]);
-    setProfileEmail(loginEmail);
-    setAuthScreen('app');
+  const handleLogin = async () => {
+    if (!loginEmail || !loginPass) { triggerToast('Please fill in all fields'); return; }
+    setAuthLoading(true);
+    try {
+      if (supabaseReady) {
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPass });
+        if (error) { triggerToast(error.message); setAuthLoading(false); return; }
+        // onAuthStateChange will update userData & screen
+      } else {
+        // Local fallback (no Supabase credentials yet)
+        setUserData({ name: loginEmail.split('@')[0], email: loginEmail });
+        setProfileName(loginEmail.split('@')[0]);
+        setProfileEmail(loginEmail);
+        setAuthScreen('app');
+      }
+    } catch {
+      triggerToast('Connection error. Check your internet.');
+    }
+    setAuthLoading(false);
   };
-  const handleSignup = () => {
-    if (!signupName || !signupEmail || !signupPass) { triggerToast("Please fill in all fields"); return; }
-    setUserData({ name: signupName, email: signupEmail });
-    setProfileName(signupName);
-    setProfileEmail(signupEmail);
-    setAuthScreen('app');
+
+  const handleSignup = async () => {
+    if (!signupName || !signupEmail || !signupPass) { triggerToast('Please fill in all fields'); return; }
+    setAuthLoading(true);
+    try {
+      if (supabaseReady) {
+        const { error } = await supabase.auth.signUp({
+          email: signupEmail,
+          password: signupPass,
+          options: { data: { full_name: signupName } }
+        });
+        if (error) { triggerToast(error.message); setAuthLoading(false); return; }
+        triggerToast('Account created! Check your email to confirm.');
+        // Auto-login after signup (Supabase may auto-confirm)
+      } else {
+        setUserData({ name: signupName, email: signupEmail });
+        setProfileName(signupName);
+        setProfileEmail(signupEmail);
+        setAuthScreen('app');
+      }
+    } catch {
+      triggerToast('Connection error. Check your internet.');
+    }
+    setAuthLoading(false);
+  };
+
+  const handleLogout = async () => {
+    if (supabaseReady) {
+      await supabase.auth.signOut();
+    } else {
+      setAuthScreen('login');
+    }
+    setProjects(SEED_PROJECTS);
+    setFavoriteIds(['p1']);
+    setShowLogoutConfirm(false);
   };
 
   // ── Splash Screen ─────────────────────────────────────────────
@@ -445,9 +525,10 @@ export default function App() {
 
         <button
           onClick={handleLogin}
-          className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-violet-300 transition-all cursor-pointer mt-2"
+          disabled={authLoading}
+          className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-violet-300 transition-all cursor-pointer mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
         >
-          Sign In
+          {authLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Sign In'}
         </button>
 
         <div className="text-center pt-2">
@@ -490,9 +571,10 @@ export default function App() {
         ))}
         <button
           onClick={handleSignup}
-          className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md shadow-violet-300 cursor-pointer mt-1"
+          disabled={authLoading}
+          className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md shadow-violet-300 cursor-pointer mt-1 flex items-center justify-center gap-2 disabled:opacity-70"
         >
-          Create Account
+          {authLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create Account'}
         </button>
         <div className="text-center pt-1">
           <span className="text-[11px] text-slate-400">Already have an account? </span>
@@ -1404,13 +1486,7 @@ export default function App() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    setShowLogoutConfirm(false);
-                    setAuthScreen('login');
-                    setLoginEmail('');
-                    setLoginPass('');
-                    triggerToast('Logged out successfully');
-                  }}
+                  onClick={handleLogout}
                   className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow cursor-pointer"
                 >
                   Log Out
@@ -1489,20 +1565,25 @@ export default function App() {
           <p className="text-slate-400 text-base leading-relaxed">Transform any video into a synchronized karaoke track using advanced AI vocal separation and word-level speech transcription.</p>
           <div className="pt-4 flex flex-wrap gap-4">
             <button onClick={() => setAppMode('mobile')} className="px-6 py-4 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl flex items-center gap-3 shadow-lg shadow-violet-600/30 transition-all cursor-pointer">
-              <Smartphone size={22} /> Mobile App Browser
+              <Smartphone size={22} /> Open Mobile App
             </button>
-            <button 
-              onClick={() => {
-                triggerToast('Downloading KaraokeAI Android APK...');
-                const a = document.createElement('a');
-                a.href = '#';
-                a.download = 'KaraokeAI.apk';
-                triggerToast('APK build package ready for install!');
-              }} 
+            <a
+              href="#"
+              download="KaraokeAI.apk"
+              onClick={(e) => { e.preventDefault(); triggerToast('APK coming soon — stay tuned!'); }}
               className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl flex items-center gap-3 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-500/30"
             >
               <Download size={22} /> Download Android APK
-            </button>
+            </a>
+          </div>
+          {/* Supabase DB status badge */}
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+            supabaseReady
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-slate-700/30 border-slate-700 text-slate-500'
+          }`}>
+            <Database size={12} />
+            {supabaseReady ? 'Supabase Connected' : 'Database: Add credentials in .env'}
           </div>
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2"><Smartphone size={16} className="text-violet-500" /> Simulator Controller</h3>
