@@ -52,8 +52,9 @@ const SEED_PROJECTS: Project[] = [
 ];
 
 export default function App() {
-  // ── Auth ──────────────────────────────────────────────────────
+  // ── Auth & Session ───────────────────────────────────────────
   const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'app'>('login');
+  const [showSplash, setShowSplash] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [signupName, setSignupName] = useState('');
@@ -61,6 +62,20 @@ export default function App() {
   const [signupPass, setSignupPass] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [userData, setUserData] = useState<UserData>({ name: 'Alex', email: 'alex@example.com' });
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Splash screen animation timer
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // ── Modals & Viewers ────────────────────────────────────────
+  const [fullVideoModal, setFullVideoModal] = useState<Project | null>(null);
+  const [showEditModal, setShowEditModal] = useState<Project | null>(null);
+  const [editTitleInput, setEditTitleInput] = useState('');
 
   // ── App shell ─────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'home' | 'projects' | 'create' | 'favorites' | 'profile'>('home');
@@ -336,10 +351,51 @@ export default function App() {
     setAuthScreen('app');
   };
 
+  // ── Splash Screen ─────────────────────────────────────────────
+  const renderSplash = () => (
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      exit={{ opacity: 0 }}
+      className="flex-grow bg-gradient-to-br from-violet-700 via-violet-800 to-indigo-900 flex flex-col items-center justify-center p-6 relative overflow-hidden text-white"
+    >
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: [0.5, 1.1, 1], opacity: 1 }}
+        transition={{ duration: 1.2, ease: "easeInOut" }}
+        className="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl mb-6 relative"
+      >
+        <div className="absolute inset-0 bg-violet-500/30 rounded-3xl animate-ping opacity-30" />
+        <Mic2 size={48} className="text-white drop-shadow-md" />
+      </motion.div>
+
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.4, duration: 0.8 }}
+        className="text-center space-y-2"
+      >
+        <h1 className="text-2xl font-black tracking-tight">Karaoke<span className="text-violet-300">AI</span></h1>
+        <p className="text-xs text-violet-200 font-medium tracking-wide">AI-Powered Vocal & Subtitle Generator</p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="absolute bottom-10 flex items-center gap-2 text-[10px] font-bold text-violet-300/80 uppercase tracking-widest"
+      >
+        <div className="w-4 h-4 border-2 border-violet-300 border-t-transparent rounded-full animate-spin" />
+        <span>Loading Experience...</span>
+      </motion.div>
+    </motion.div>
+  );
+
   // ─────────────────────────────────────────────────────────────
   // Phone canvas inner content
   // ─────────────────────────────────────────────────────────────
   const renderPhoneContent = () => {
+    if (showSplash) return renderSplash();
     if (authScreen === 'login') return renderLogin();
     if (authScreen === 'signup') return renderSignup();
     return renderAppShell();
@@ -708,8 +764,8 @@ export default function App() {
             {projects.map(p => (
               <div 
                 key={p.id} 
-                onClick={() => openProject(p)}
-                className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm hover:border-violet-200 transition-all cursor-pointer group"
+                onClick={() => setFullVideoModal(p)}
+                className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm hover:border-violet-200 transition-all cursor-pointer group relative"
               >
                 <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-600 transition-colors">
                   <Play size={18} className="text-violet-600 group-hover:text-white transition-colors" fill="currentColor" />
@@ -724,6 +780,29 @@ export default function App() {
                 >
                   <MoreVertical size={16} />
                 </button>
+                {activeMenuId === p.id && (
+                  <div className="absolute top-10 right-3 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-36 z-20" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => { setEditTitleInput(p.title); setShowEditModal(p); setActiveMenuId(null); }}
+                      className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Edit3 size={13} /> Edit Title
+                    </button>
+                    <button
+                      onClick={() => { toggleFavorite(p.id); setActiveMenuId(null); }}
+                      className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Heart size={13} className={favoriteIds.includes(p.id) ? 'fill-red-500 text-red-500' : ''} />
+                      {favoriteIds.includes(p.id) ? 'Unfavorite' : 'Favorite'}
+                    </button>
+                    <button
+                      onClick={() => deleteProject(p.id)}
+                      className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer border-t border-slate-50 mt-0.5 pt-1.5"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -732,7 +811,7 @@ export default function App() {
             {projects.map(p => (
               <div 
                 key={p.id} 
-                onClick={() => openProject(p)}
+                onClick={() => setFullVideoModal(p)}
                 className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative hover:border-violet-200 transition-all cursor-pointer group"
               >
                 <div className="relative">
@@ -743,9 +822,15 @@ export default function App() {
                     <MoreVertical size={16} />
                   </button>
                   {activeMenuId === p.id && (
-                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20" onClick={e => e.stopPropagation()}>
+                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-36 z-20" onClick={e => e.stopPropagation()}>
                       <button
-                        onClick={() => toggleFavorite(p.id)}
+                        onClick={() => { setEditTitleInput(p.title); setShowEditModal(p); setActiveMenuId(null); }}
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Edit3 size={13} /> Edit Title
+                      </button>
+                      <button
+                        onClick={() => { toggleFavorite(p.id); setActiveMenuId(null); }}
                         className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
                       >
                         <Heart size={13} className={favoriteIds.includes(p.id) ? 'fill-red-500 text-red-500' : ''} />
@@ -753,7 +838,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => deleteProject(p.id)}
-                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer border-t border-slate-50 mt-0.5 pt-1.5"
                       >
                         Delete
                       </button>
@@ -796,7 +881,7 @@ export default function App() {
             {favProjects.map(p => (
               <div 
                 key={p.id} 
-                onClick={() => openProject(p)}
+                onClick={() => setFullVideoModal(p)}
                 className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative hover:border-violet-200 transition-all cursor-pointer group"
               >
                 <div className="relative">
@@ -807,9 +892,15 @@ export default function App() {
                     <MoreVertical size={16} />
                   </button>
                   {activeMenuId === p.id && (
-                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-32 z-20" onClick={e => e.stopPropagation()}>
+                    <div className="absolute top-7 right-1 bg-white border border-slate-100 rounded-xl shadow-lg py-1 w-36 z-20" onClick={e => e.stopPropagation()}>
                       <button
-                        onClick={() => toggleFavorite(p.id)}
+                        onClick={() => { setEditTitleInput(p.title); setShowEditModal(p); setActiveMenuId(null); }}
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Edit3 size={13} /> Edit Title
+                      </button>
+                      <button
+                        onClick={() => { toggleFavorite(p.id); setActiveMenuId(null); }}
                         className="w-full text-left px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-violet-50 hover:text-violet-600 flex items-center gap-2 cursor-pointer"
                       >
                         <Heart size={13} className="fill-red-500 text-red-500" />
@@ -817,7 +908,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => deleteProject(p.id)}
-                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer border-t border-slate-50 mt-0.5 pt-1.5"
                       >
                         Delete
                       </button>
@@ -941,7 +1032,7 @@ export default function App() {
 
       {/* Logout */}
       <button
-        onClick={() => { setAuthScreen('login'); setLoginEmail(''); setLoginPass(''); triggerToast('Logged out'); }}
+        onClick={() => setShowLogoutConfirm(true)}
         className="w-full py-3 border border-red-200 text-red-500 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-red-50"
       >
         <LogOut size={14} /> Log Out
@@ -1223,6 +1314,166 @@ export default function App() {
         {showToast && (
           <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 20 }} exit={{ opacity: 0, y: -50 }} className="fixed top-4 z-[200] bg-violet-600 text-white px-6 py-3 rounded-full shadow-lg font-medium border border-violet-400 flex items-center gap-2">
             <Check size={18} /><span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Screen Video Modal */}
+      <AnimatePresence>
+        {fullVideoModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-between p-4 backdrop-blur-lg"
+          >
+            <div className="w-full flex justify-between items-center py-2 px-2 z-10">
+              <span className="text-white font-bold text-sm truncate max-w-[70%]">{fullVideoModal.title}</span>
+              <button
+                onClick={() => setFullVideoModal(null)}
+                className="w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/40 cursor-pointer text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="w-full max-w-2xl flex-grow flex items-center justify-center my-auto overflow-hidden rounded-2xl bg-slate-900 border border-slate-800">
+              {fullVideoModal.videoUrl ? (
+                <video
+                  src={fullVideoModal.videoUrl}
+                  controls
+                  autoPlay
+                  className="w-full h-full object-contain rounded-2xl"
+                />
+              ) : (
+                <div className="text-center p-8 space-y-3">
+                  <Film size={48} className="mx-auto text-violet-400 opacity-60" />
+                  <p className="text-sm font-bold text-slate-300">{fullVideoModal.title}</p>
+                  <p className="text-xs text-slate-500">Video output ready for playback</p>
+                </div>
+              )}
+            </div>
+            <div className="w-full max-w-2xl py-3 flex gap-3">
+              <button
+                onClick={() => {
+                  const target = fullVideoModal;
+                  setFullVideoModal(null);
+                  openProject(target);
+                }}
+                className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Edit3 size={14} /> Open in Subtitle Editor
+              </button>
+              <button
+                onClick={() => setFullVideoModal(null)}
+                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full text-slate-800 space-y-4 shadow-2xl text-center"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+                <LogOut size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-800">Confirm Logout</h3>
+                <p className="text-xs text-slate-500 mt-1">Are you sure you want to log out of KaraokeAI?</p>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    setAuthScreen('login');
+                    setLoginEmail('');
+                    setLoginPass('');
+                    triggerToast('Logged out successfully');
+                  }}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow cursor-pointer"
+                >
+                  Log Out
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Title Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full text-slate-800 space-y-4 shadow-2xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center">
+                  <Edit3 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">Edit Project Title</h3>
+                  <p className="text-[10px] text-slate-400">Update video display name</p>
+                </div>
+              </div>
+              <input
+                type="text"
+                value={editTitleInput}
+                onChange={e => setEditTitleInput(e.target.value)}
+                placeholder="Enter title..."
+                className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium text-slate-800"
+                autoFocus
+              />
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setShowEditModal(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (editTitleInput.trim() !== '') {
+                      setProjects(prev => prev.map(p => p.id === showEditModal.id ? { ...p, title: editTitleInput.trim() } : p));
+                      triggerToast('Project title updated!');
+                    }
+                    setShowEditModal(null);
+                  }}
+                  className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl shadow cursor-pointer"
+                >
+                  Save Title
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
