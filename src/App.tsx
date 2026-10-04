@@ -715,10 +715,10 @@ export default function App() {
           <p className="text-xs text-center">No favorites yet.<br />Like a project to see it here!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 pt-2">
+        <div className="grid grid-cols-1 gap-3 pt-2">
           {projects.map(p => (
             <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 space-y-2 shadow-sm relative">
-              <button onClick={() => triggerToast('Removed from favorites')} className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow-sm text-red-500 hover:text-slate-400 z-10 cursor-pointer">
+              <button onClick={() => triggerToast('Removed from favorites')} className="absolute top-3 right-3 p-1.5 bg-white/80 backdrop-blur rounded-full shadow-sm text-red-500 hover:text-slate-400 z-10 cursor-pointer">
                 <Heart size={14} className="fill-red-500" />
               </button>
               <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
@@ -728,7 +728,7 @@ export default function App() {
                 <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
                 <p className="text-[9px] text-slate-400">{p.date}</p>
               </div>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-block ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
                 {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
               </span>
             </div>
