@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './supabaseClient';
+import RealSpectrogram from './RealSpectrogram';
 // @ts-ignore
 import waterfallImg from './waterfall.png';
 
@@ -1272,14 +1273,16 @@ export default function App() {
                 <span className="text-[10px] text-slate-400 block">Your AI vocals are being refined</span>
               </div>
             </div>
-            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 space-y-2">
-              <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase"><span>Live Spectrogram</span><span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" /> Active</span></div>
-              <div className="h-12 flex items-end justify-between gap-0.5 px-2">
-                {Array.from({ length: 26 }).map((_, i) => (
-                  <motion.div key={i} animate={{ height: activeScreen === 2 ? [8, Math.random() * 40 + 8, 8] : 8 }} transition={{ repeat: Infinity, duration: 0.8 + Math.random() * 0.5, ease: "easeInOut" }} className="w-1 bg-gradient-to-t from-violet-400 to-violet-600 rounded-full" />
-                ))}
+              <div className="bg-white border border-slate-100 rounded-2xl p-3.5 space-y-2">
+                <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
+                  <span>Live Spectrogram</span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                    Active
+                  </span>
+                </div>
+                <RealSpectrogram audioUrl={uploadedVideoUrl} isActive={activeScreen === 2} />
               </div>
-            </div>
             <div className="bg-white border border-slate-100 rounded-2xl p-3 space-y-2.5">
               <span className="text-[9px] font-extrabold text-violet-500 uppercase tracking-widest block">Workflow Steps</span>
               <div className="space-y-2 text-xs">
