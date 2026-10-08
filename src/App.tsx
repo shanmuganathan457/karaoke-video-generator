@@ -1398,8 +1398,8 @@ export default function App() {
               <div className="mt-auto space-y-2 pt-2">
                 <button
                   onClick={async () => {
-                    const url = exportedBlobUrl || uploadedVideoUrl;
-                    if (!url) { triggerToast('No video ready!'); return; }
+                    const url = exportedBlobUrl;
+                    if (!url) { triggerToast('No exported video ready! Export might have failed.'); return; }
                     triggerToast('Downloading...');
                     if (url.startsWith('blob:')) {
                       const a = document.createElement('a'); a.href = url; a.download = `${(selectedFile || videoTitle).replace(/[^a-z0-9]/gi, '_')}_karaoke.mp4`; document.body.appendChild(a); a.click(); document.body.removeChild(a);

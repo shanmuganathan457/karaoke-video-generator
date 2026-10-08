@@ -70,19 +70,19 @@ class VideoProcessor:
                 abs_subtitle_path = abs_subtitle_path.replace(":", "\\:")
         
         try:
-            input_video = ffmpeg.input(video_path)
-            video_stream = input_video.filter('subtitles', abs_subtitle_path)
-            audio_stream = input_video.audio
-            (
-                ffmpeg
-                .output(video_stream, audio_stream, output_path, vcodec='libx264', acodec='copy')
-                .overwrite_output()
-                .run(quiet=True)
-            )
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', video_path,
+                '-vf', f"subtitles={abs_subtitle_path}",
+                '-c:v', 'libx264',
+                '-c:a', 'copy',
+                output_path
+            ]
+            process = subprocess.run(cmd, check=True, capture_output=True, text=True)
             logger.info(f"Output video created: {output_path}")
-        except ffmpeg.Error as e:
-            logger.error(f"FFmpeg error during burn: {e.stderr.decode()}")
-            raise
+        except subprocess.CalledProcessError as e:
+            logger.error(f"FFmpeg error during burn: {e.stderr}")
+            raise RuntimeError(f"Failed to burn subtitles: {e.stderr}")
 
     def transcode(self, input_path: str, output_path: str, quality: str, format_ext: str):
         """Transcodes a video to the specified quality (resolution) and format."""
