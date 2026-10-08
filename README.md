@@ -50,12 +50,12 @@ The system processes video files in 5 distinct stages to guarantee maximum trans
 
 ```mermaid
 graph TD
-    A[Input Video] -->|FFmpeg| B[Step 1: Extract Full Soundtrack]
-    B -->|Demucs AI| C[Step 2: Vocal/Instrumental Separation]
-    C -->|vocals.wav| D[Step 3: Faster-Whisper Word-Level Transcription]
-    D -->|Segments & Words| E[Step 4: Transliteration & ASS Karaoke Formatting]
-    E -->|pysubs2| F[Step 5: Burn Subtitles & Merge Original Audio]
-    F -->|FFmpeg| G[Output Karaoke Video]
+    A["Input Video"] -->|FFmpeg| B["Step 1: Extract Full Soundtrack"]
+    B -->|"Demucs AI"| C["Step 2: Vocal/Instrumental Separation"]
+    C -->|"vocals.wav"| D["Step 3: Faster-Whisper Word-Level Transcription"]
+    D -->|"Segments & Words"| E["Step 4: Transliteration & ASS Karaoke Formatting"]
+    E -->|pysubs2| F["Step 5: Burn Subtitles & Merge Original Audio"]
+    F -->|FFmpeg| G["Output Karaoke Video"]
 ```
 
 ### How Each Step Works:
