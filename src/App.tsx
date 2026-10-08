@@ -273,6 +273,7 @@ export default function App() {
           const data = await response.json();
           setJobId(data.job_id);
           setSegments(data.segments);
+          let genTitle = '';
           if (data.segments?.length > 0) {
             let words: string[] = [];
             for (const seg of data.segments) {
@@ -280,7 +281,10 @@ export default function App() {
               else if (seg.text) words.push(...seg.text.split(' '));
               if (words.length >= 3) break;
             }
-            if (words.length > 0) setVideoTitle(words.slice(0, 3).join(' '));
+            if (words.length > 0) {
+              genTitle = words.slice(0, 3).join(' ');
+              setVideoTitle(genTitle);
+            }
           }
           const videoResp = await fetch(apiBaseUrl + data.video_url, { headers: { "ngrok-skip-browser-warning": "69420" } });
           const videoBlob = await videoResp.blob();
@@ -289,7 +293,7 @@ export default function App() {
           setProcessingProgress(100);
           const elapsed = Math.round((Date.now() - startTs) / 1000);
           setLastProcessingTime(elapsed);
-          finishProject(elapsed);
+          finishProject(elapsed, genTitle, data.video_url, data.job_id, data.segments);
           setTimeout(() => setActiveScreen(3), 800);
         } else {
           clearInterval(fakeProgress);
@@ -318,19 +322,24 @@ export default function App() {
     }
   };
 
-  const finishProject = (elapsed: number) => {
+  const finishProject = (elapsed: number, forcedTitle?: string, forcedVideoUrl?: string, forcedJobId?: string, forcedSegments?: any[]) => {
     const projId = crypto.randomUUID ? crypto.randomUUID() : `p${Date.now()}`;
+    const finalTitle = forcedTitle || videoTitle || selectedFile?.replace(/\.[^.]+$/, '') || 'Untitled';
+    const finalJobId = forcedJobId || jobId;
+    const finalVideoUrl = forcedVideoUrl || uploadedVideoUrl || undefined;
+    const finalSegments = forcedSegments || segments || [];
+
     const proj: Project = {
       id: projId,
-      title: videoTitle || selectedFile?.replace(/\.[^.]+$/, '') || 'Untitled',
+      title: finalTitle,
       date: now(),
       duration: videoDuration > 0 ? formatTime(videoDuration) : '--:--',
       mode: uploadMode,
       processingTime: elapsed,
       status: 'done',
-      videoUrl: uploadedVideoUrl || undefined,
-      jobId: jobId || undefined,
-      segments: segments || [],
+      videoUrl: finalVideoUrl,
+      jobId: finalJobId,
+      segments: finalSegments,
     };
     setProjects(prev => [proj, ...prev]);
 
@@ -394,6 +403,13 @@ export default function App() {
         const blobUrl = URL.createObjectURL(vBlob);
         setExportedBlobUrl(blobUrl);
         setUploadedVideoUrl(blobUrl);
+        
+        // Update project with the burned video url
+        setProjects(prev => prev.map(p => p.jobId === jobId ? { ...p, videoUrl: data.video_url } : p));
+        if (supabaseReady) {
+          supabase.from('projects').update({ video_url: data.video_url }).eq('job_id', jobId).then();
+        }
+
         triggerToast("Export successful! Ready to share.");
         setIsExporting(false);
       } else {
