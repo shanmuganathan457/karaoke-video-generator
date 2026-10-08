@@ -49,10 +49,8 @@ const formatDuration = (secs: number) => {
 const now = () => new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
 // ─── Sample seed projects ────────────────────────────────────────
-const SEED_PROJECTS: Project[] = [
-  { id: 'p1', title: 'Midnight Serenade', date: '01 Oct 2026', duration: '3:42', mode: 'auto', processingTime: 87, status: 'done' },
-  { id: 'p2', title: 'Summer Rain', date: '29 Sep 2026', duration: '2:58', mode: 'custom', processingTime: 54, status: 'done' },
-];
+const SEED_PROJECTS: Project[] = [];
+
 
 export default function App() {
   // ── Auth & Session ───────────────────────────────────────────
@@ -714,12 +712,15 @@ export default function App() {
   );
 
   // ── HOME TAB ─────────────────────────────────────────────────
-  const renderHome = () => (
+  const renderHome = () => {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning 🌅' : hour < 17 ? 'Good afternoon ☀️' : 'Good evening 🌙';
+    return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pt-4 pb-4 space-y-4">
       {/* Greeting */}
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-[11px] text-slate-400 font-medium">Good morning 👋</p>
+          <p className="text-[11px] text-slate-400 font-medium">{greeting}</p>
           <h2 className="text-sm font-black text-slate-800">{userData.name}</h2>
         </div>
         <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
@@ -845,9 +846,13 @@ export default function App() {
           <button onClick={() => setActiveTab('projects')} className="text-[10px] font-bold text-violet-600 cursor-pointer">View all</button>
         </div>
         {projects.slice(0, 2).map(p => (
-          <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 mb-2 shadow-sm">
-            <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-              <Music size={16} className="text-violet-600" />
+          <div
+            key={p.id}
+            onClick={() => setFullVideoModal(p)}
+            className="bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 mb-2 shadow-sm cursor-pointer hover:border-violet-200 transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-600 transition-colors overflow-hidden relative">
+              {p.videoUrl ? <video src={p.videoUrl.startsWith('http') ? `${p.videoUrl}#t=0.1` : `${apiBaseUrl}${p.videoUrl}#t=0.1`} preload="metadata" className="w-full h-full object-cover absolute inset-0" /> : <Music size={16} className="text-violet-600 group-hover:text-white transition-colors z-10" />}
             </div>
             <div className="flex-grow min-w-0">
               <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
@@ -866,7 +871,8 @@ export default function App() {
         )}
       </div>
     </motion.div>
-  );
+    );
+  };
 
   // ── PROJECTS TAB ─────────────────────────────────────────────
   const renderProjects = () => (
