@@ -1327,12 +1327,12 @@ export default function App() {
         {/* SCREEN 3: PREVIEW */}
         {activeScreen === 3 && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex-grow flex flex-col py-2 space-y-4">
-            <div ref={videoContainerRef} className="relative w-full min-h-[40vh] max-h-[55vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center" style={{ isolation: 'isolate' }}>
+            <div ref={videoContainerRef} className="relative w-full min-h-[40vh] max-h-[55vh] rounded-3xl overflow-hidden shadow-md border-2 border-slate-800 bg-black flex items-center justify-center p-2 pb-6" style={{ isolation: 'isolate' }}>
               <style>{`:fullscreen .subtitle-overlay { display: flex !important; } :-webkit-full-screen .subtitle-overlay { display: flex !important; } :fullscreen video { width: 100%; height: 100%; object-fit: contain; } video::-webkit-media-controls-fullscreen-button { display: none !important; }`}</style>
               {uploadedVideoUrl ? (
-                <video ref={videoRef} src={uploadedVideoUrl} className="w-full h-full object-contain" autoPlay loop playsInline controls controlsList="nofullscreen" onTimeUpdate={() => setPlaybackTime(videoRef.current?.currentTime || 0)} onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)} />
+                <video ref={videoRef} src={uploadedVideoUrl} className="w-full h-full object-contain rounded-xl" autoPlay loop playsInline controls controlsList="nofullscreen" onTimeUpdate={() => setPlaybackTime(videoRef.current?.currentTime || 0)} onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)} />
               ) : (
-                <img src={waterfallImg} alt="preview" className="w-full h-full object-contain opacity-60" />
+                <img src={waterfallImg} alt="preview" className="w-full h-full object-contain opacity-60 rounded-xl" />
               )}
               <div className="absolute top-6 left-0 right-0 px-6 text-center z-10">
                 {isEditingTitle ? (
