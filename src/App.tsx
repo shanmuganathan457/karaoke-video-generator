@@ -173,7 +173,7 @@ export default function App() {
   const [selectedQuality, setSelectedQuality] = useState<'Original' | 'HD'>('Original');
   const [videoDuration, setVideoDuration] = useState(0);
   const [exportedBlobUrl, setExportedBlobUrl] = useState<string | null>(null);
-  const [videoTitle, setVideoTitle] = useState('My Karaoke');
+  const [videoTitle, setVideoTitle] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -971,13 +971,14 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center group-hover:from-violet-600 group-hover:to-indigo-600 transition-all">
-                    <Play size={22} className="text-violet-500 group-hover:text-white transition-colors" fill="currentColor" />
+                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center group-hover:from-violet-600 group-hover:to-indigo-600 transition-all overflow-hidden relative">
+                    {p.videoUrl ? <video src={p.videoUrl.startsWith('http') ? `${p.videoUrl}#t=0.1` : `${apiBaseUrl}${p.videoUrl}#t=0.1`} preload="metadata" className="w-full h-full object-cover absolute inset-0 opacity-50 mix-blend-luminosity" /> : null}
+                    <Play size={22} className="text-violet-500 group-hover:text-white transition-colors z-10" fill="currentColor" />
                   </div>
                 </div>
                 <div>
                   <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
-                  <p className="text-[9px] text-slate-400">{p.date}</p>
+                  <p className="text-[9px] text-slate-400">{p.date} &middot; {p.duration}</p>
                 </div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-block ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
                   {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
@@ -1041,13 +1042,14 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center group-hover:from-violet-600 group-hover:to-indigo-600 transition-all">
-                    <Play size={22} className="text-violet-500 group-hover:text-white transition-colors" fill="currentColor" />
+                  <div className="w-full h-16 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center group-hover:from-violet-600 group-hover:to-indigo-600 transition-all overflow-hidden relative">
+                    {p.videoUrl ? <video src={p.videoUrl.startsWith('http') ? `${p.videoUrl}#t=0.1` : `${apiBaseUrl}${p.videoUrl}#t=0.1`} preload="metadata" className="w-full h-full object-cover absolute inset-0 opacity-50 mix-blend-luminosity" /> : null}
+                    <Play size={22} className="text-violet-500 group-hover:text-white transition-colors z-10" fill="currentColor" />
                   </div>
                 </div>
                 <div>
                   <p className="text-[11px] font-bold text-slate-800 truncate pr-6">{p.title}</p>
-                  <p className="text-[9px] text-slate-400">{p.date}</p>
+                  <p className="text-[9px] text-slate-400">{p.date} &middot; {p.duration}</p>
                 </div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-block ${p.mode === 'auto' ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-600'}`}>
                   {p.mode === 'auto' ? '⚡ Auto' : '📝 Custom'}
@@ -1150,10 +1152,9 @@ export default function App() {
       {/* Stats */}
       <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
         <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Your Stats</p>
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-2 gap-2 text-center max-w-[200px]">
           <div><p className="text-sm font-black text-slate-800">{totalProjects}</p><p className="text-[9px] text-slate-400">Videos</p></div>
           <div><p className="text-sm font-black text-slate-800">{autoCount}</p><p className="text-[9px] text-slate-400">Auto</p></div>
-          <div><p className="text-sm font-black text-slate-800">{customCount}</p><p className="text-[9px] text-slate-400">Custom</p></div>
         </div>
       </div>
 
@@ -1369,20 +1370,8 @@ export default function App() {
                   <div className="bg-white border border-slate-100 p-2.5 rounded-2xl flex items-center gap-3 shadow-sm">
                     {uploadedVideoUrl ? <video src={`${uploadedVideoUrl}#t=0.1`} preload="metadata" className="w-12 h-12 object-cover rounded-lg bg-black" /> : <img src={waterfallImg} alt="thumb" className="w-12 h-12 object-cover rounded-lg" />}
                     <div className="flex-grow text-left">
-                      <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">{selectedFile?.replace(/\.[^.]+$/, '') || videoTitle}</h4>
+                      <h4 className="text-[11px] font-bold text-slate-800 line-clamp-1">{videoTitle || selectedFile?.replace(/\.[^.]+$/, '') || 'Untitled'}</h4>
                       <span className="text-[9px] text-slate-400 font-mono">{videoDuration > 0 ? formatTime(videoDuration) : '--:--'}</span>
-                    </div>
-                  </div>
-                  <div className="bg-white border border-slate-100 p-3.5 rounded-2xl space-y-3 shadow-sm text-left">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Video Quality</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['Original', 'HD'] as const).map(q => (
-                        <button key={q} onClick={() => setSelectedQuality(q)} className={`py-1.5 text-[11px] font-bold rounded-lg transition-colors ${selectedQuality === q ? 'bg-violet-600 text-white' : 'bg-slate-50 text-slate-500'}`}>{q === 'HD' ? '🎬 HD' : '📁 Original'}</button>
-                      ))}
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-2 flex items-center justify-between border border-slate-100 px-4">
-                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Est. Size</span>
-                      <span className="text-[12px] font-black text-violet-600">{getFileSize()} MB</span>
                     </div>
                   </div>
                   <div className="space-y-1.5 text-left">
