@@ -128,6 +128,32 @@ export default function App() {
 
   // ── Modals & Viewers ────────────────────────────────────────
   const [fullVideoModal, setFullVideoModal] = useState<Project | null>(null);
+  const [modalBlobUrl, setModalBlobUrl] = useState<string | null>(null);
+  const [isModalLoading, setIsModalLoading] = useState(false);
+
+  useEffect(() => {
+    if (fullVideoModal?.videoUrl) {
+      const url = fullVideoModal.videoUrl;
+      if (url.startsWith('blob:') || url.startsWith('http')) {
+        setModalBlobUrl(url);
+      } else {
+        setIsModalLoading(true);
+        fetch(`${apiBaseUrl}${url}`, { headers: { 'ngrok-skip-browser-warning': '69420' } })
+          .then(res => res.blob())
+          .then(blob => {
+            setModalBlobUrl(URL.createObjectURL(blob));
+            setIsModalLoading(false);
+          })
+          .catch(() => {
+            triggerToast('Failed to load video for playback');
+            setIsModalLoading(false);
+          });
+      }
+    } else {
+      setModalBlobUrl(null);
+    }
+  }, [fullVideoModal]);
+
   const [showEditModal, setShowEditModal] = useState<Project | null>(null);
   const [editTitleInput, setEditTitleInput] = useState('');
 
@@ -1476,14 +1502,16 @@ export default function App() {
                 &times;
               </button>
             </div>
-            <div className="w-full max-w-2xl flex-grow flex items-center justify-center my-auto overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-2 pb-4">
-              {fullVideoModal.videoUrl ? (
+            <div className="w-full max-w-2xl flex-grow flex items-center justify-center my-auto overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-2 pb-4 relative">
+              {isModalLoading && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/80">
+                  <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <p className="text-xs font-bold text-violet-400 animate-pulse">Loading video...</p>
+                </div>
+              )}
+              {modalBlobUrl ? (
                 <video
-                  src={
-                    fullVideoModal.videoUrl.startsWith('blob:') || fullVideoModal.videoUrl.startsWith('http')
-                      ? fullVideoModal.videoUrl
-                      : `${apiBaseUrl}${fullVideoModal.videoUrl}`
-                  }
+                  src={modalBlobUrl}
                   controls
                   autoPlay
                   className="w-full h-full object-contain"
