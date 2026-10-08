@@ -1465,13 +1465,13 @@ export default function App() {
                 &times;
               </button>
             </div>
-            <div className="w-full max-w-2xl flex-grow flex items-center justify-center my-auto overflow-hidden rounded-2xl bg-slate-900 border border-slate-800">
+            <div className="w-full max-w-2xl flex-grow flex items-center justify-center my-auto overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-2 pb-4">
               {fullVideoModal.videoUrl ? (
                 <video
                   src={fullVideoModal.videoUrl}
                   controls
                   autoPlay
-                  className="w-full h-full object-contain rounded-2xl"
+                  className="w-full h-full object-contain"
                 />
               ) : (
                 <div className="text-center p-8 space-y-3">
