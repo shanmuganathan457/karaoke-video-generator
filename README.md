@@ -4,6 +4,9 @@ A premium, production-grade Python-based utility and web service that converts a
 
 By isolating vocals using **Demucs AI**, transcribing them at a word level using **Faster-Whisper**, and generating romanized/phonetic transliterations for Indic scripts, the pipeline outputs beautifully timed SubStation Alpha (ASS) karaoke subtitles and burns them back onto the original video—all while keeping the original high-fidelity multi-instrumental soundtrack.
 
+![Web App Interface UI](https://github.com/shanmuganathan457/karaoke-video-generator/raw/main/preview.png)
+*(Note: Upload a screenshot of your web app and name it `preview.png` in the repository root for it to appear above)*
+
 ---
 
 ## 📂 Project Directory Structure
@@ -31,7 +34,12 @@ karaoke-video-generator/
 │
 ├── inputs/                    # Input video directory
 ├── outputs/                   # Output folder for generated videos & subtitles
-└── mobile-app/                # React Native Expo Mobile Client codebase
+├── src/                       # React Web Application (Vite/Tailwind)
+│   ├── App.tsx                # Main UI with routing and video editor modal
+│   ├── index.css              # Tailwind and global styles
+│   ├── supabaseClient.ts      # Authentication and database client
+│   └── RealSpectrogram.tsx    # Audio visualization component
+└── public/                    # Static assets for the Web App
 ```
 
 ---
@@ -160,35 +168,32 @@ At the end of processing, the terminal will print a **Lyrics Accuracy Metrics Re
 
 ---
 
-## 📱 Running the Web Server for the Mobile App
+## 🌐 Running the Web Application
 
-To connect the React Native mobile app (running via Expo Go) to the Python pipeline, you need to spin up the web backend:
+The system features a premium, responsive Web Application built with React, Vite, and Tailwind CSS. The web app allows you to upload videos, generate subtitles, edit karaoke timings, and export the final burned video.
 
-1. **Start the FastAPI Server:**
+1. **Start the FastAPI Backend Server:**
    ```bash
-   python -m karaoke_generator.server
+   python api_server.py
    ```
-   *The server will start listening on `http://0.0.0.0:8000`.*
+   *The server will start listening on `http://0.0.0.0:8000` (or via ngrok if configured).*
 
-2. **Configure your Mobile App:**
-   * Find your PC's local network IP address (e.g., `192.168.1.40`).
-   * Open [api.ts](file:///c:/Users/janas/Documents/GitHub/karaoke-video-generator/karaoke-video-generator/mobile-app/services/api.ts) in the `mobile-app` directory and update the `API_BASE_URL`:
-     ```typescript
-     export const API_BASE_URL = 'http://<YOUR_PC_IP>:8000';
-     ```
+2. **Start the React Frontend:**
+   Open a new terminal and run:
+   ```bash
+   npm install
+   npm run dev
+   ```
+   *The web UI will start at `http://localhost:5173`.*
 
-3. **Server API Endpoints:**
-   * **Authentication & User Management:**
-     * `POST /auth/register` - Create a new account
-     * `POST /auth/login` - Authenticate and receive a JWT token
-     * `GET /auth/me` - Fetch user profile and token balance
-   * **Video Processing & Projects:**
-     * `GET /projects` - List all projects and their status for the authenticated user
-     * `DELETE /projects/{projectId}` - Delete a project and its associated files
-     * `POST /upload` - Upload a video file to start karaoke generation (consumes 1 token)
-     * `GET /status/{jobId}` - Poll status updates (`queued` ➔ `extracting` ➔ `separating` ➔ `transcribing` ➔ `generating` ➔ `completed`)
-     * `GET /output/{jobId}` - Download the completed karaoke video (supports on-demand quality and format transcoding)
-     * `GET /thumbnail/{jobId}` - Fetch the thumbnail image for the generated video
+3. **Configure the Environment:**
+   * Ensure your `.env` or configuration points to the correct backend API URL.
+   * If using `ngrok`, the frontend is designed to automatically handle and bypass ngrok's browser warnings.
+
+### Server API Endpoints:
+* `POST /generate` - Uploads a video, runs transcription & separation, and returns timing segments.
+* `POST /export` - Takes the finalized subtitles and uses FFmpeg to burn them onto the video.
+* `POST /download_link` - Converts a YouTube/Instagram link into a video file for karaoke generation.
 
 ---
 
