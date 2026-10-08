@@ -199,7 +199,7 @@ export default function App() {
   const [isDownloadingLink, setIsDownloadingLink] = useState(false);
   const [downloadedLinkVideo, setDownloadedLinkVideo] = useState<string | null>(null);
 
-  const apiBaseUrl = "https://defiance-trustable-washstand.ngrok-free.dev";
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://defiance-trustable-washstand.ngrok-free.dev";
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
