@@ -9,8 +9,8 @@ def _patched_av_open(*args, **kwargs):
     return _orig_av_open(*args, **kwargs)
 av.open = _patched_av_open
 
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -25,8 +25,11 @@ app = FastAPI(title="KaraokeAI Backend API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 os.makedirs("/tmp", exist_ok=True)
@@ -35,6 +38,19 @@ app.mount("/files", StaticFiles(directory="/tmp"), name="files")
 @app.get("/")
 def root():
     return {"status": "KaraokeAI Backend is running!", "version": "2.1.0"}
+
+
+@app.options("/generate")
+async def generate_preflight():
+    """Handle CORS preflight for /generate endpoint."""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 
 def get_audio_duration(audio_path: str) -> float:
